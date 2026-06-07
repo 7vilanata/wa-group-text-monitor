@@ -163,6 +163,23 @@ def row_to_dict(row):
     return dict(row) if row else None
 
 
+def query_value(query, key, default=""):
+    return query.get(key, [default])[0]
+
+
+def query_int(query, key, default, minimum=None, maximum=None):
+    raw = query_value(query, key, str(default))
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = default
+    if minimum is not None:
+        value = max(value, minimum)
+    if maximum is not None:
+        value = min(value, maximum)
+    return value
+
+
 def deep_get(payload, paths, default=None):
     for path in paths:
         current = payload
@@ -537,6 +554,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if path == "/api/groups":
             self.api_groups(query, user)
             return
+        if path == "/api/chats":
+            self.api_chats(query, user)
+            return
         if path.startswith("/api/groups/") and path.endswith("/messages"):
             group_id = path.split("/")[3]
             self.api_group_messages(group_id, query, user)
@@ -624,7 +644,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.send_json(400, {"error": "invalid_json"})
 
     def api_groups(self, query, user):
-        search = f"%{query.get('q', [''])[0].strip()}%"
+        search = f"%{query_value(query, 'q').strip()}%"
         params = [search]
         access_join = ""
         access_where = ""
@@ -667,27 +687,109 @@ class AppHandler(SimpleHTTPRequestHandler):
         if not self.can_access_group(user, group_id):
             self.send_json(403, {"error": "forbidden"})
             return
+        messages = self.load_group_messages(group_id, query)
+        self.send_json(200, {"messages": messages})
+
+    def api_chats(self, query, user):
+        group = self.resolve_group(query)
+        if not group:
+            self.send_json(404, {"error": "group_not_found"})
+            return
+        if not self.can_access_group(user, group["id"]):
+            self.send_json(403, {"error": "forbidden"})
+            return
+
+        messages = self.load_group_messages(group["id"], query)
+        self.send_json(
+            200,
+            {
+                "group": group,
+                "filters": {
+                    "q": query_value(query, "q").strip() or None,
+                    "sender_id": query_value(query, "sender_id") or None,
+                    "from": query_value(query, "from") or None,
+                    "to": query_value(query, "to") or None,
+                },
+                "pagination": {
+                    "limit": query_int(query, "limit", 80, 1, 200),
+                    "returned": len(messages),
+                    "order": "asc",
+                },
+                "messages": [
+                    {
+                        "id": message["id"],
+                        "wa_message_id": message["wa_message_id"],
+                        "group_id": message["group_id"],
+                        "wa_chat_id": group["wa_chat_id"],
+                        "group_name": group["name"],
+                        "body": message["body"],
+                        "wa_timestamp": message["wa_timestamp"],
+                        "received_at": message["received_at"],
+                        "sender": {
+                            "id": message["sender_pk"],
+                            "wa_contact_id": message["wa_contact_id"],
+                            "display_name": message["sender_name"],
+                        },
+                    }
+                    for message in messages
+                ],
+            },
+        )
+
+    def resolve_group(self, query):
+        group_id = query_value(query, "group_id").strip()
+        wa_chat_id = query_value(query, "wa_chat_id").strip()
+        if not group_id and not wa_chat_id:
+            return None
+
+        if not wa_chat_id and "@" in group_id:
+            wa_chat_id = group_id
+            group_id = ""
+
+        with db() as conn:
+            if wa_chat_id:
+                row = conn.execute(
+                    """
+                    SELECT id, wa_chat_id, name, participant_count, last_message_at
+                    FROM groups
+                    WHERE wa_chat_id = ?
+                    """,
+                    (wa_chat_id,),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    """
+                    SELECT id, wa_chat_id, name, participant_count, last_message_at
+                    FROM groups
+                    WHERE id = ?
+                    """,
+                    (group_id,),
+                ).fetchone()
+        return row_to_dict(row)
+
+    def load_group_messages(self, group_id, query):
         clauses = ["messages.group_id = ?"]
         params = [group_id]
-        if query.get("sender_id", [""])[0]:
+        if query_value(query, "sender_id"):
             clauses.append("contacts.id = ?")
-            params.append(query["sender_id"][0])
-        if query.get("from", [""])[0]:
+            params.append(query_value(query, "sender_id"))
+        if query_value(query, "from"):
             clauses.append("messages.wa_timestamp >= ?")
-            params.append(query["from"][0])
-        if query.get("to", [""])[0]:
+            params.append(query_value(query, "from"))
+        if query_value(query, "to"):
             clauses.append("messages.wa_timestamp <= ?")
-            params.append(query["to"][0])
-        if query.get("q", [""])[0].strip():
+            params.append(query_value(query, "to"))
+        if query_value(query, "q").strip():
             clauses.append("messages.body LIKE ?")
-            params.append(f"%{query['q'][0].strip()}%")
-        limit = min(max(int(query.get("limit", ["80"])[0] or 80), 1), 200)
+            params.append(f"%{query_value(query, 'q').strip()}%")
+        limit = query_int(query, "limit", 80, 1, 200)
         with db() as conn:
             rows = conn.execute(
                 f"""
                 SELECT
                     messages.id,
                     messages.wa_message_id,
+                    messages.group_id,
                     messages.body,
                     messages.wa_timestamp,
                     messages.received_at,
@@ -704,24 +806,24 @@ class AppHandler(SimpleHTTPRequestHandler):
             ).fetchall()
         messages = [row_to_dict(row) for row in rows]
         messages.reverse()
-        self.send_json(200, {"messages": messages})
+        return messages
 
     def api_search(self, query, user):
-        keyword = query.get("q", [""])[0].strip()
+        keyword = query_value(query, "q").strip()
         if not keyword:
             self.send_json(200, {"results": []})
             return
         clauses = ["messages.body LIKE ?"]
         params = [f"%{keyword}%"]
-        if query.get("group_id", [""])[0]:
+        if query_value(query, "group_id"):
             clauses.append("groups.id = ?")
-            params.append(query["group_id"][0])
-        if query.get("from", [""])[0]:
+            params.append(query_value(query, "group_id"))
+        if query_value(query, "from"):
             clauses.append("messages.wa_timestamp >= ?")
-            params.append(query["from"][0])
-        if query.get("to", [""])[0]:
+            params.append(query_value(query, "from"))
+        if query_value(query, "to"):
             clauses.append("messages.wa_timestamp <= ?")
-            params.append(query["to"][0])
+            params.append(query_value(query, "to"))
         if user["role"] != "admin":
             clauses.append("groups.id IN (SELECT group_id FROM group_access WHERE user_id = ?)")
             params.append(user["id"])
@@ -747,7 +849,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.send_json(200, {"results": [row_to_dict(row) for row in rows]})
 
     def api_contacts(self, query):
-        group_id = query.get("group_id", [""])[0]
+        group_id = query_value(query, "group_id")
         if not group_id:
             self.send_json(200, {"contacts": []})
             return
