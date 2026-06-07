@@ -19,7 +19,10 @@ STATIC_DIR = BASE_DIR / "static"
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "app.db"
 WEBHOOK_SECRET = os.environ.get("WAHA_WEBHOOK_SECRET", "dev-secret")
-SESSION_TTL_SECONDS = 60 * 60 * 12
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com").strip().lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+ADMIN_NAME = os.environ.get("ADMIN_NAME", "Admin")
+SESSION_TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", str(60 * 60 * 12)))
 
 
 def utc_now():
@@ -134,16 +137,25 @@ def init_db():
             """
         )
 
-        user = conn.execute("SELECT id FROM users WHERE email = ?", ("admin@example.com",)).fetchone()
+        user = conn.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
+        salt, password_hash = hash_password(ADMIN_PASSWORD)
         if not user:
             now = utc_now()
-            salt, password_hash = hash_password("admin123")
             conn.execute(
                 """
                 INSERT INTO users (name, email, password_salt, password_hash, role, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                ("Admin", "admin@example.com", salt, password_hash, "admin", now, now),
+                (ADMIN_NAME, ADMIN_EMAIL, salt, password_hash, "admin", now, now),
+            )
+        elif os.environ.get("ADMIN_PASSWORD"):
+            conn.execute(
+                """
+                UPDATE users
+                SET name = ?, password_salt = ?, password_hash = ?, updated_at = ?
+                WHERE email = ?
+                """,
+                (ADMIN_NAME, salt, password_hash, utc_now(), ADMIN_EMAIL),
             )
 
 
@@ -793,7 +805,7 @@ def main():
     port = int(os.environ.get("PORT", "8000"))
     httpd = ThreadingHTTPServer((host, port), AppHandler)
     print(f"WA group text monitor running on http://{host}:{port}")
-    print("Default login: admin@example.com / admin123")
+    print(f"Admin login email: {ADMIN_EMAIL}")
     print(f"Webhook secret header X-Webhook-Secret: {WEBHOOK_SECRET}")
     httpd.serve_forever()
 

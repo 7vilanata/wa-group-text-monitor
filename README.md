@@ -37,7 +37,7 @@ dev-secret
 Untuk mengganti port atau secret:
 
 ```bash
-PORT=8080 WAHA_WEBHOOK_SECRET=secret-production python3 app.py
+PORT=8080 WAHA_WEBHOOK_SECRET=secret-production ADMIN_EMAIL=admin@company.com ADMIN_PASSWORD=password-kuat python3 app.py
 ```
 
 ## Deploy ke EasyPanel
@@ -51,6 +51,9 @@ PORT=8080 WAHA_WEBHOOK_SECRET=secret-production python3 app.py
 HOST=0.0.0.0
 PORT=8000
 WAHA_WEBHOOK_SECRET=isi-secret-produksi
+ADMIN_EMAIL=email-admin-anda
+ADMIN_PASSWORD=password-admin-yang-kuat
+ADMIN_NAME=Admin
 ```
 
 5. Tambahkan persistent volume agar SQLite tidak hilang saat redeploy:
@@ -60,6 +63,13 @@ WAHA_WEBHOOK_SECRET=isi-secret-produksi
 ```
 
 Semua data aplikasi disimpan di database SQLite pada volume tersebut. Tidak ada file storage untuk konten WhatsApp.
+
+Catatan admin login:
+
+- `ADMIN_EMAIL` menentukan email admin yang dibuat otomatis.
+- `ADMIN_PASSWORD` menentukan password admin.
+- Jika `ADMIN_PASSWORD` diset, password admin untuk `ADMIN_EMAIL` akan disinkronkan ulang saat container start.
+- Jika env admin tidak diset, aplikasi memakai default `admin@example.com` / `admin123`, hanya cocok untuk development lokal.
 
 ## Endpoint Webhook WAHA
 
