@@ -493,12 +493,31 @@ class AppHandler(SimpleHTTPRequestHandler):
             ).fetchone()
             return row_to_dict(row)
 
+    def has_valid_webhook_secret(self):
+        supplied = self.headers.get("X-Webhook-Secret", "")
+        return bool(WEBHOOK_SECRET) and hmac.compare_digest(supplied, WEBHOOK_SECRET)
+
     def require_user(self):
         user = self.current_user()
         if not user:
             self.send_json(401, {"error": "unauthorized"})
             return None
         return user
+
+    def require_user_or_webhook_secret(self):
+        user = self.current_user()
+        if user:
+            return user
+        if self.has_valid_webhook_secret():
+            return {
+                "id": None,
+                "name": "Webhook API",
+                "email": None,
+                "role": "admin",
+                "auth_type": "webhook_secret",
+            }
+        self.send_json(401, {"error": "unauthorized"})
+        return None
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -548,14 +567,17 @@ class AppHandler(SimpleHTTPRequestHandler):
             user = self.current_user()
             self.send_json(200, {"user": user})
             return
+        if path == "/api/chats":
+            user = self.require_user_or_webhook_secret()
+            if not user:
+                return
+            self.api_chats(query, user)
+            return
         user = self.require_user()
         if not user:
             return
         if path == "/api/groups":
             self.api_groups(query, user)
-            return
-        if path == "/api/chats":
-            self.api_chats(query, user)
             return
         if path.startswith("/api/groups/") and path.endswith("/messages"):
             group_id = path.split("/")[3]
@@ -629,8 +651,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def api_waha_webhook(self):
-        supplied = self.headers.get("X-Webhook-Secret", "")
-        if not hmac.compare_digest(supplied, WEBHOOK_SECRET):
+        if not self.has_valid_webhook_secret():
             self.send_json(401, {"error": "invalid_webhook_secret"})
             return
         try:

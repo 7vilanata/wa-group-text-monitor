@@ -112,16 +112,30 @@ Jika event bukan dari grup atau tidak memiliki isi teks, response akan `ignored`
 
 ## Endpoint Tarik Chat Berdasarkan Group ID
 
-Endpoint ini digunakan untuk mengambil data chat/pesan teks dari satu grup. Request harus sudah login dan membawa cookie session dari endpoint login.
+Endpoint ini digunakan untuk mengambil data chat/pesan teks dari satu grup. Request bisa memakai cookie session dari login dashboard atau header `X-Webhook-Secret` agar mudah dipakai dari n8n.
 
 ```http
 GET /api/chats?group_id=1&limit=50
-Cookie: session=...
+X-Webhook-Secret: dev-secret
 ```
 
 `group_id` bisa memakai ID internal database (`1`) atau WA chat id (`120363000000000000@g.us`). Jika memakai WA chat id di URL, encode karakter `@` menjadi `%40`.
 
-Login untuk mengambil cookie session:
+Contoh request untuk n8n atau integrasi server-to-server:
+
+```bash
+curl -H 'X-Webhook-Secret: dev-secret' \
+  'http://127.0.0.1:8000/api/chats?group_id=1&limit=10'
+```
+
+Contoh request dengan WA chat id group:
+
+```bash
+curl -H 'X-Webhook-Secret: dev-secret' \
+  'http://127.0.0.1:8000/api/chats?group_id=120363000000000000%40g.us&limit=10'
+```
+
+Jika ingin memakai login dashboard, ambil cookie session dulu:
 
 ```bash
 curl -c cookies.txt -X POST http://127.0.0.1:8000/api/auth/login \
@@ -132,18 +146,11 @@ curl -c cookies.txt -X POST http://127.0.0.1:8000/api/auth/login \
   }'
 ```
 
-Contoh request dengan ID internal group:
+Lalu kirim request dengan cookie:
 
 ```bash
 curl -b cookies.txt \
   'http://127.0.0.1:8000/api/chats?group_id=1&limit=10'
-```
-
-Contoh request dengan WA chat id group:
-
-```bash
-curl -b cookies.txt \
-  'http://127.0.0.1:8000/api/chats?group_id=120363000000000000%40g.us&limit=10'
 ```
 
 Query parameter yang didukung:
