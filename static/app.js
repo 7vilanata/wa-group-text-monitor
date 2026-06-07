@@ -4,6 +4,7 @@ const state = {
   selectedGroupId: null,
   contacts: [],
   pollTimer: null,
+  lastRenderedGroupId: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -98,7 +99,7 @@ async function logout() {
 async function refreshAll() {
   await Promise.all([loadGroups(), loadStats()]);
   if (state.selectedGroupId) {
-    await Promise.all([loadContacts(state.selectedGroupId), loadMessages()]);
+    await Promise.all([loadContacts(state.selectedGroupId), loadMessages({ preserveScroll: true })]);
   }
 }
 
@@ -160,7 +161,7 @@ async function selectGroup(groupId) {
     ? `${group.participant_count || "-"} anggota | ${group.wa_chat_id}`
     : "Belum ada grup dipilih";
   renderGroups();
-  await Promise.all([loadContacts(groupId), loadMessages()]);
+  await Promise.all([loadContacts(groupId), loadMessages({ preserveScroll: false })]);
 }
 
 async function loadContacts(groupId) {
@@ -187,7 +188,7 @@ function dateToIsoEnd(value) {
   return value ? `${value}T23:59:59+00:00` : "";
 }
 
-async function loadMessages() {
+async function loadMessages({ preserveScroll = true } = {}) {
   if (!state.selectedGroupId) return;
   const params = new URLSearchParams();
   params.set("limit", "120");
@@ -196,14 +197,20 @@ async function loadMessages() {
   if ($("#from-filter").value) params.set("from", dateToIsoStart($("#from-filter").value));
   if ($("#to-filter").value) params.set("to", dateToIsoEnd($("#to-filter").value));
   const data = await api(`/api/groups/${state.selectedGroupId}/messages?${params.toString()}`);
-  renderMessages(data.messages);
+  renderMessages(data.messages, { preserveScroll });
 }
 
-function renderMessages(messages) {
+function renderMessages(messages, { preserveScroll = true } = {}) {
   const container = $("#message-list");
+  const previousScrollTop = container.scrollTop;
+  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+  const wasNearBottom = distanceFromBottom < 80;
+  const isNewGroup = Number(state.lastRenderedGroupId) !== Number(state.selectedGroupId);
+
   container.classList.toggle("empty-state", !messages.length);
   if (!messages.length) {
     container.innerHTML = "Tidak ada pesan teks untuk filter ini.";
+    state.lastRenderedGroupId = state.selectedGroupId;
     return;
   }
   container.innerHTML = messages
@@ -219,7 +226,13 @@ function renderMessages(messages) {
       `
     )
     .join("");
-  container.scrollTop = container.scrollHeight;
+
+  if (!preserveScroll || isNewGroup || wasNearBottom) {
+    container.scrollTop = container.scrollHeight;
+  } else {
+    container.scrollTop = previousScrollTop;
+  }
+  state.lastRenderedGroupId = state.selectedGroupId;
 }
 
 async function runGlobalSearch() {
@@ -293,13 +306,13 @@ $("#login-form").addEventListener("submit", login);
 $("#logout-button").addEventListener("click", logout);
 $("#refresh-button").addEventListener("click", () => refreshAll());
 $("#group-search").addEventListener("input", () => loadGroups().catch(() => {}));
-$("#apply-filter").addEventListener("click", () => loadMessages());
+$("#apply-filter").addEventListener("click", () => loadMessages({ preserveScroll: false }));
 $("#reset-filter").addEventListener("click", () => {
   $("#message-keyword").value = "";
   $("#sender-filter").value = "";
   $("#from-filter").value = "";
   $("#to-filter").value = "";
-  loadMessages();
+  loadMessages({ preserveScroll: false });
 });
 $("#global-search-button").addEventListener("click", runGlobalSearch);
 $("#global-search").addEventListener("keydown", (event) => {
