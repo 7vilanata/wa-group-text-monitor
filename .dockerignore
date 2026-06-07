@@ -1,0 +1,11 @@
+.git
+.pycache
+__pycache__
+data
+*.pyc
+*.pyo
+*.sqlite
+*.db
+.DS_Store
+.env
+node_modules

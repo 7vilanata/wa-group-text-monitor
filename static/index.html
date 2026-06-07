@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WA Group Text Monitor</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main id="login-view" class="login-shell hidden">
+      <section class="login-panel">
+        <div>
+          <p class="eyebrow">WA Group Text Monitor</p>
+          <h1>Masuk ke dashboard</h1>
+          <p class="muted">Pantau percakapan teks WhatsApp group dari WAHA.</p>
+        </div>
+        <form id="login-form" class="login-form">
+          <label>
+            Email
+            <input id="email" type="email" autocomplete="email" value="admin@example.com" required />
+          </label>
+          <label>
+            Password
+            <input id="password" type="password" autocomplete="current-password" value="admin123" required />
+          </label>
+          <button type="submit">Masuk</button>
+          <p id="login-error" class="error hidden"></p>
+        </form>
+      </section>
+    </main>
+
+    <main id="app-view" class="app-shell hidden">
+      <aside class="sidebar">
+        <header class="brand">
+          <div>
+            <p class="eyebrow">Text-only</p>
+            <h1>WA Groups</h1>
+          </div>
+          <button id="logout-button" class="icon-button" title="Keluar" aria-label="Keluar">Q</button>
+        </header>
+
+        <div class="search-box">
+          <input id="group-search" type="search" placeholder="Cari grup" />
+        </div>
+
+        <section id="group-list" class="group-list"></section>
+      </aside>
+
+      <section class="conversation">
+        <header class="conversation-header">
+          <div>
+            <p id="selected-group-meta" class="eyebrow">Belum ada grup dipilih</p>
+            <h2 id="selected-group-name">Percakapan</h2>
+          </div>
+          <div class="header-actions">
+            <button id="refresh-button" class="secondary-button">Refresh</button>
+          </div>
+        </header>
+
+        <section class="filters">
+          <input id="message-keyword" type="search" placeholder="Cari di grup ini" />
+          <select id="sender-filter">
+            <option value="">Semua pengirim</option>
+          </select>
+          <input id="from-filter" type="date" />
+          <input id="to-filter" type="date" />
+          <button id="apply-filter" class="secondary-button">Filter</button>
+          <button id="reset-filter" class="ghost-button">Reset</button>
+        </section>
+
+        <section id="message-list" class="message-list empty-state">
+          Pilih grup untuk melihat percakapan teks.
+        </section>
+      </section>
+
+      <aside class="inspector">
+        <section class="panel">
+          <div class="panel-title">
+            <h3>Search Global</h3>
+          </div>
+          <div class="global-search">
+            <input id="global-search" type="search" placeholder="Cari semua pesan" />
+            <button id="global-search-button" class="secondary-button">Cari</button>
+          </div>
+          <div id="search-results" class="search-results"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h3>Status Ingestion</h3>
+          </div>
+          <div id="stats" class="stats-grid"></div>
+          <div id="recent-events" class="event-list"></div>
+        </section>
+      </aside>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
