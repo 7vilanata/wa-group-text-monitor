@@ -225,7 +225,7 @@ Aplikasi juga memiliki tab `Dashboard` terpisah dari fitur chat. Data dashboard 
 
 | Kolom | Keterangan |
 | --- | --- |
-| `group_id` | ID internal grup dari tabel `groups`. |
+| `group_id` | ID grup dari sumber laporan harian. Nilai ini langsung disimpan dan tidak wajib sudah ada di tabel `groups`. |
 | `report_date` | Tanggal laporan harian, format `YYYY-MM-DD`. |
 | `teacher_name` | Nama guru. |
 | `student_name` | Nama murid. |
@@ -272,7 +272,7 @@ Contoh payload dengan field API:
 }
 ```
 
-Data juga bisa memakai `wa_chat_id` sebagai pengganti `group_id` jika grup sudah pernah tersimpan dari webhook WAHA:
+Data juga bisa memakai `wa_chat_id` sebagai pengganti `group_id`. Nilai tersebut akan disimpan sebagai `group_id` laporan harian:
 
 ```json
 {
@@ -296,7 +296,7 @@ Query parameter yang didukung:
 
 | Parameter | Wajib | Keterangan |
 | --- | --- | --- |
-| `group_id` | Tidak | Filter ID internal grup atau WA chat id. |
+| `group_id` | Tidak | Filter group id laporan. Jika memakai WA chat id, dashboard juga mencocokkan ke grup WA yang sudah tersimpan bila ada. |
 | `date` | Tidak | Filter satu tanggal laporan. |
 | `from` | Tidak | Ambil laporan mulai tanggal ini. |
 | `to` | Tidak | Ambil laporan sampai tanggal ini. |

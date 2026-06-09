@@ -126,7 +126,7 @@ def init_db():
 
             CREATE TABLE IF NOT EXISTS daily_group_changes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+                group_id TEXT NOT NULL,
                 report_date TEXT NOT NULL,
                 teacher_name TEXT NOT NULL,
                 student_name TEXT NOT NULL,
@@ -153,6 +153,7 @@ def init_db():
                 ON daily_group_changes(group_id, report_date DESC);
             """
         )
+        migrate_daily_group_changes(conn)
 
         user = conn.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
         salt, password_hash = hash_password(ADMIN_PASSWORD)
@@ -174,6 +175,46 @@ def init_db():
                 """,
                 (ADMIN_NAME, salt, password_hash, utc_now(), ADMIN_EMAIL),
             )
+
+
+def migrate_daily_group_changes(conn):
+    columns = conn.execute("PRAGMA table_info(daily_group_changes)").fetchall()
+    group_column = next((column for column in columns if column["name"] == "group_id"), None)
+    foreign_keys = conn.execute("PRAGMA foreign_key_list(daily_group_changes)").fetchall()
+    if not group_column or (str(group_column["type"]).upper() == "TEXT" and not foreign_keys):
+        return
+
+    conn.executescript(
+        """
+        CREATE TABLE daily_group_changes_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id TEXT NOT NULL,
+            report_date TEXT NOT NULL,
+            teacher_name TEXT NOT NULL,
+            student_name TEXT NOT NULL,
+            bot TEXT NOT NULL,
+            changed TEXT NOT NULL,
+            changed_by TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        INSERT INTO daily_group_changes_new (
+            id, group_id, report_date, teacher_name, student_name, bot, changed, changed_by, created_at, updated_at
+        )
+        SELECT
+            id, CAST(group_id AS TEXT), report_date, teacher_name, student_name, bot, changed, changed_by, created_at, updated_at
+        FROM daily_group_changes;
+
+        DROP TABLE daily_group_changes;
+        ALTER TABLE daily_group_changes_new RENAME TO daily_group_changes;
+
+        CREATE INDEX IF NOT EXISTS idx_daily_group_changes_date
+            ON daily_group_changes(report_date DESC, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_daily_group_changes_group_date
+            ON daily_group_changes(group_id, report_date DESC);
+        """
+    )
 
 
 def row_to_dict(row):
@@ -819,10 +860,11 @@ class AppHandler(SimpleHTTPRequestHandler):
         group_filter = query_value(query, "group_id").strip()
         if group_filter:
             if "@" in group_filter:
-                clauses.append("groups.wa_chat_id = ?")
+                clauses.append("(daily_group_changes.group_id = ? OR groups.wa_chat_id = ?)")
+                params.extend([group_filter, group_filter])
             else:
                 clauses.append("daily_group_changes.group_id = ?")
-            params.append(group_filter)
+                params.append(group_filter)
         if query_value(query, "date"):
             clauses.append("daily_group_changes.report_date = ?")
             params.append(normalize_date(query_value(query, "date")))
@@ -870,7 +912,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     daily_group_changes.created_at,
                     daily_group_changes.updated_at
                 FROM daily_group_changes
-                JOIN groups ON groups.id = daily_group_changes.group_id
+                LEFT JOIN groups ON CAST(groups.id AS TEXT) = daily_group_changes.group_id
                 {where_sql}
                 ORDER BY daily_group_changes.report_date DESC, daily_group_changes.id DESC
                 LIMIT ?
@@ -885,7 +927,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     COUNT(DISTINCT daily_group_changes.teacher_name) AS teachers,
                     COUNT(DISTINCT daily_group_changes.student_name) AS students
                 FROM daily_group_changes
-                JOIN groups ON groups.id = daily_group_changes.group_id
+                LEFT JOIN groups ON CAST(groups.id AS TEXT) = daily_group_changes.group_id
                 {where_sql}
                 """,
                 params,
@@ -906,14 +948,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.send_json(400, {"error": "invalid_json"})
             return
 
-        group = self.resolve_group_from_payload(payload)
-        if not group:
-            self.send_json(404, {"error": "group_not_found"})
-            return
-        if not self.can_access_group(user, group["id"]):
-            self.send_json(403, {"error": "forbidden"})
-            return
-
+        group_id = first_scalar_text(payload.get("group_id"), payload.get("wa_chat_id"), payload.get("group_wa_chat_id"))
         teacher_name = first_scalar_text(payload.get("teacher_name"), payload.get("nama_guru"))
         student_name = first_scalar_text(payload.get("student_name"), payload.get("nama_murid"))
         bot = first_scalar_text(payload.get("bot"))
@@ -922,6 +957,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         missing = [
             key
             for key, value in {
+                "group_id": group_id,
                 "teacher_name": teacher_name,
                 "student_name": student_name,
                 "bot": bot,
@@ -944,7 +980,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    group["id"],
+                    group_id,
                     normalize_date(payload.get("report_date") or payload.get("tanggal")),
                     teacher_name,
                     student_name,
@@ -971,7 +1007,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     daily_group_changes.created_at,
                     daily_group_changes.updated_at
                 FROM daily_group_changes
-                JOIN groups ON groups.id = daily_group_changes.group_id
+                LEFT JOIN groups ON CAST(groups.id AS TEXT) = daily_group_changes.group_id
                 WHERE daily_group_changes.id = ?
                 """,
                 (cur.lastrowid,),
