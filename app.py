@@ -124,6 +124,19 @@ def init_db():
                 UNIQUE(user_id, group_id)
             );
 
+            CREATE TABLE IF NOT EXISTS daily_group_changes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+                report_date TEXT NOT NULL,
+                teacher_name TEXT NOT NULL,
+                student_name TEXT NOT NULL,
+                bot TEXT NOT NULL,
+                changed TEXT NOT NULL,
+                changed_by TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_groups_last_message_at
                 ON groups(last_message_at DESC);
             CREATE INDEX IF NOT EXISTS idx_messages_group_time
@@ -134,6 +147,10 @@ def init_db():
                 ON messages(body);
             CREATE INDEX IF NOT EXISTS idx_webhook_events_received_at
                 ON webhook_events(received_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_daily_group_changes_date
+                ON daily_group_changes(report_date DESC, id DESC);
+            CREATE INDEX IF NOT EXISTS idx_daily_group_changes_group_date
+                ON daily_group_changes(group_id, report_date DESC);
             """
         )
 
@@ -180,6 +197,20 @@ def query_int(query, key, default, minimum=None, maximum=None):
     return value
 
 
+def normalize_date(value):
+    if value in (None, ""):
+        return utc_now()[:10]
+    raw = str(value).strip()
+    if not raw:
+        return utc_now()[:10]
+    if "T" in raw:
+        raw = raw.split("T", 1)[0]
+    try:
+        return datetime.fromisoformat(raw).date().isoformat()
+    except ValueError:
+        return raw[:10]
+
+
 def deep_get(payload, paths, default=None):
     for path in paths:
         current = payload
@@ -216,6 +247,19 @@ def first_text(*values):
     for value in values:
         if isinstance(value, str):
             stripped = value.strip()
+            if stripped:
+                return stripped
+    return None
+
+
+def first_scalar_text(*values):
+    for value in values:
+        if value in (None, ""):
+            continue
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, (str, int, float, bool)):
+            stripped = str(value).strip()
             if stripped:
                 return stripped
     return None
@@ -573,6 +617,12 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return
             self.api_chats(query, user)
             return
+        if path == "/api/daily-changes":
+            user = self.require_user_or_webhook_secret()
+            if not user:
+                return
+            self.api_daily_changes(query, user)
+            return
         user = self.require_user()
         if not user:
             return
@@ -603,6 +653,12 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         if path == "/api/webhooks/waha/messages":
             self.api_waha_webhook()
+            return
+        if path == "/api/daily-changes":
+            user = self.require_user_or_webhook_secret()
+            if not user:
+                return
+            self.api_create_daily_change(user)
             return
         self.send_json(404, {"error": "not_found"})
 
@@ -757,6 +813,171 @@ class AppHandler(SimpleHTTPRequestHandler):
             },
         )
 
+    def api_daily_changes(self, query, user):
+        clauses = []
+        params = []
+        group_filter = query_value(query, "group_id").strip()
+        if group_filter:
+            if "@" in group_filter:
+                clauses.append("groups.wa_chat_id = ?")
+            else:
+                clauses.append("daily_group_changes.group_id = ?")
+            params.append(group_filter)
+        if query_value(query, "date"):
+            clauses.append("daily_group_changes.report_date = ?")
+            params.append(normalize_date(query_value(query, "date")))
+        if query_value(query, "from"):
+            clauses.append("daily_group_changes.report_date >= ?")
+            params.append(normalize_date(query_value(query, "from")))
+        if query_value(query, "to"):
+            clauses.append("daily_group_changes.report_date <= ?")
+            params.append(normalize_date(query_value(query, "to")))
+        keyword = query_value(query, "q").strip()
+        if keyword:
+            clauses.append(
+                """
+                (
+                    groups.name LIKE ?
+                    OR daily_group_changes.teacher_name LIKE ?
+                    OR daily_group_changes.student_name LIKE ?
+                    OR daily_group_changes.bot LIKE ?
+                    OR daily_group_changes.changed LIKE ?
+                    OR daily_group_changes.changed_by LIKE ?
+                )
+                """
+            )
+            params.extend([f"%{keyword}%"] * 6)
+        if user["role"] != "admin":
+            clauses.append("daily_group_changes.group_id IN (SELECT group_id FROM group_access WHERE user_id = ?)")
+            params.append(user["id"])
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        limit = query_int(query, "limit", 200, 1, 500)
+
+        with db() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT
+                    daily_group_changes.id,
+                    daily_group_changes.group_id,
+                    groups.wa_chat_id,
+                    groups.name AS group_name,
+                    daily_group_changes.report_date,
+                    daily_group_changes.teacher_name,
+                    daily_group_changes.student_name,
+                    daily_group_changes.bot,
+                    daily_group_changes.changed,
+                    daily_group_changes.changed_by,
+                    daily_group_changes.created_at,
+                    daily_group_changes.updated_at
+                FROM daily_group_changes
+                JOIN groups ON groups.id = daily_group_changes.group_id
+                {where_sql}
+                ORDER BY daily_group_changes.report_date DESC, daily_group_changes.id DESC
+                LIMIT ?
+                """,
+                params + [limit],
+            ).fetchall()
+            totals = conn.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS rows,
+                    COUNT(DISTINCT daily_group_changes.group_id) AS groups,
+                    COUNT(DISTINCT daily_group_changes.teacher_name) AS teachers,
+                    COUNT(DISTINCT daily_group_changes.student_name) AS students
+                FROM daily_group_changes
+                JOIN groups ON groups.id = daily_group_changes.group_id
+                {where_sql}
+                """,
+                params,
+            ).fetchone()
+        self.send_json(
+            200,
+            {
+                "daily_changes": [row_to_dict(row) for row in rows],
+                "totals": row_to_dict(totals),
+                "pagination": {"limit": limit, "returned": len(rows)},
+            },
+        )
+
+    def api_create_daily_change(self, user):
+        try:
+            payload = self.read_json()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            self.send_json(400, {"error": "invalid_json"})
+            return
+
+        group = self.resolve_group_from_payload(payload)
+        if not group:
+            self.send_json(404, {"error": "group_not_found"})
+            return
+        if not self.can_access_group(user, group["id"]):
+            self.send_json(403, {"error": "forbidden"})
+            return
+
+        teacher_name = first_scalar_text(payload.get("teacher_name"), payload.get("nama_guru"))
+        student_name = first_scalar_text(payload.get("student_name"), payload.get("nama_murid"))
+        bot = first_scalar_text(payload.get("bot"))
+        changed = first_scalar_text(payload.get("changed"), payload.get("berubah"))
+        changed_by = first_scalar_text(payload.get("changed_by"), payload.get("pengubah"))
+        missing = [
+            key
+            for key, value in {
+                "teacher_name": teacher_name,
+                "student_name": student_name,
+                "bot": bot,
+                "changed": changed,
+                "changed_by": changed_by,
+            }.items()
+            if not value
+        ]
+        if missing:
+            self.send_json(400, {"error": "missing_fields", "fields": missing})
+            return
+
+        now = utc_now()
+        with db() as conn:
+            cur = conn.execute(
+                """
+                INSERT INTO daily_group_changes (
+                    group_id, report_date, teacher_name, student_name, bot, changed, changed_by, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    group["id"],
+                    normalize_date(payload.get("report_date") or payload.get("tanggal")),
+                    teacher_name,
+                    student_name,
+                    bot,
+                    changed,
+                    changed_by,
+                    now,
+                    now,
+                ),
+            )
+            row = conn.execute(
+                """
+                SELECT
+                    daily_group_changes.id,
+                    daily_group_changes.group_id,
+                    groups.wa_chat_id,
+                    groups.name AS group_name,
+                    daily_group_changes.report_date,
+                    daily_group_changes.teacher_name,
+                    daily_group_changes.student_name,
+                    daily_group_changes.bot,
+                    daily_group_changes.changed,
+                    daily_group_changes.changed_by,
+                    daily_group_changes.created_at,
+                    daily_group_changes.updated_at
+                FROM daily_group_changes
+                JOIN groups ON groups.id = daily_group_changes.group_id
+                WHERE daily_group_changes.id = ?
+                """,
+                (cur.lastrowid,),
+            ).fetchone()
+        self.send_json(201, {"daily_change": row_to_dict(row)})
+
     def resolve_group(self, query):
         group_id = query_value(query, "group_id").strip()
         wa_chat_id = query_value(query, "wa_chat_id").strip()
@@ -786,6 +1007,35 @@ class AppHandler(SimpleHTTPRequestHandler):
                     """,
                     (group_id,),
                 ).fetchone()
+        return row_to_dict(row)
+
+    def resolve_group_from_payload(self, payload):
+        group_id = first_scalar_text(payload.get("group_id"))
+        wa_chat_id = first_scalar_text(payload.get("wa_chat_id"), payload.get("group_wa_chat_id"))
+        if not wa_chat_id and group_id and "@" in group_id:
+            wa_chat_id = group_id
+            group_id = None
+        with db() as conn:
+            if wa_chat_id:
+                row = conn.execute(
+                    """
+                    SELECT id, wa_chat_id, name, participant_count, last_message_at
+                    FROM groups
+                    WHERE wa_chat_id = ?
+                    """,
+                    (wa_chat_id,),
+                ).fetchone()
+            elif group_id:
+                row = conn.execute(
+                    """
+                    SELECT id, wa_chat_id, name, participant_count, last_message_at
+                    FROM groups
+                    WHERE id = ?
+                    """,
+                    (group_id,),
+                ).fetchone()
+            else:
+                row = None
         return row_to_dict(row)
 
     def load_group_messages(self, group_id, query):

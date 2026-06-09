@@ -219,6 +219,90 @@ Response error umum:
 { "error": "group_not_found" }
 ```
 
+## Dashboard Harian Perubahan Grup
+
+Aplikasi juga memiliki tab `Dashboard` terpisah dari fitur chat. Data dashboard disimpan di tabel `daily_group_changes` dengan kolom utama:
+
+| Kolom | Keterangan |
+| --- | --- |
+| `group_id` | ID internal grup dari tabel `groups`. |
+| `report_date` | Tanggal laporan harian, format `YYYY-MM-DD`. |
+| `teacher_name` | Nama guru. |
+| `student_name` | Nama murid. |
+| `bot` | Bot yang terkait, bisa nama bot atau status boolean dari integrasi. |
+| `changed` | Nilai/peristiwa yang berubah. |
+| `changed_by` | Nama pengubah. |
+
+Endpoint untuk mengisi data dashboard:
+
+```http
+POST /api/daily-changes
+X-Webhook-Secret: dev-secret
+Content-Type: application/json
+```
+
+Contoh payload dengan nama field Bahasa Indonesia:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/daily-changes \
+  -H 'Content-Type: application/json' \
+  -H 'X-Webhook-Secret: dev-secret' \
+  -d '{
+    "group_id": 1,
+    "tanggal": "2026-06-09",
+    "nama_guru": "Bu Rina",
+    "nama_murid": "Andi",
+    "bot": "Reminder Bot",
+    "berubah": "Status tugas menjadi selesai",
+    "pengubah": "Admin Sekolah"
+  }'
+```
+
+Contoh payload dengan field API:
+
+```json
+{
+  "group_id": 1,
+  "report_date": "2026-06-09",
+  "teacher_name": "Bu Rina",
+  "student_name": "Andi",
+  "bot": true,
+  "changed": "Status tugas menjadi selesai",
+  "changed_by": "Admin Sekolah"
+}
+```
+
+Data juga bisa memakai `wa_chat_id` sebagai pengganti `group_id` jika grup sudah pernah tersimpan dari webhook WAHA:
+
+```json
+{
+  "wa_chat_id": "120363000000000000@g.us",
+  "tanggal": "2026-06-09",
+  "nama_guru": "Bu Rina",
+  "nama_murid": "Andi",
+  "bot": "Reminder Bot",
+  "berubah": "Status tugas menjadi selesai",
+  "pengubah": "Admin Sekolah"
+}
+```
+
+Endpoint untuk membaca data dashboard:
+
+```http
+GET /api/daily-changes?group_id=1&date=2026-06-09&q=andi
+```
+
+Query parameter yang didukung:
+
+| Parameter | Wajib | Keterangan |
+| --- | --- | --- |
+| `group_id` | Tidak | Filter ID internal grup atau WA chat id. |
+| `date` | Tidak | Filter satu tanggal laporan. |
+| `from` | Tidak | Ambil laporan mulai tanggal ini. |
+| `to` | Tidak | Ambil laporan sampai tanggal ini. |
+| `q` | Tidak | Cari di nama grup, guru, murid, bot, berubah, atau pengubah. |
+| `limit` | Tidak | Jumlah baris, minimal `1`, maksimal `500`, default `200`. |
+
 ## Database
 
 Schema utama:
@@ -230,5 +314,6 @@ Schema utama:
 - `sessions`
 - `webhook_events`
 - `group_access`
+- `daily_group_changes`
 
 Catatan: `data/app.db` adalah database SQLite aplikasi. Ini bukan file storage untuk konten WhatsApp.

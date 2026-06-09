@@ -2,7 +2,9 @@ const state = {
   user: null,
   groups: [],
   selectedGroupId: null,
+  currentView: "chat",
   contacts: [],
+  dailyChanges: [],
   pollTimer: null,
   lastRenderedGroupId: null,
 };
@@ -92,6 +94,7 @@ async function logout() {
   await api("/api/auth/logout", { method: "POST" });
   state.user = null;
   state.selectedGroupId = null;
+  state.currentView = "chat";
   stopPolling();
   show("login");
 }
@@ -100,6 +103,9 @@ async function refreshAll() {
   await Promise.all([loadGroups(), loadStats()]);
   if (state.selectedGroupId) {
     await Promise.all([loadContacts(state.selectedGroupId), loadMessages({ preserveScroll: true })]);
+  }
+  if (state.currentView === "dashboard") {
+    await loadDailyChanges();
   }
 }
 
@@ -122,6 +128,7 @@ async function loadGroups() {
   const data = await api(`/api/groups?q=${query}`);
   state.groups = data.groups;
   renderGroups();
+  renderDashboardGroupFilter();
   if (!state.selectedGroupId && state.groups.length) {
     await selectGroup(state.groups[0].id);
   }
@@ -235,6 +242,87 @@ function renderMessages(messages, { preserveScroll = true } = {}) {
   state.lastRenderedGroupId = state.selectedGroupId;
 }
 
+function switchView(view) {
+  state.currentView = view;
+  const isDashboard = view === "dashboard";
+  $("#chat-tab").classList.toggle("active", !isDashboard);
+  $("#dashboard-tab").classList.toggle("active", isDashboard);
+  $("#chat-sidebar-tools").classList.toggle("hidden", isDashboard);
+  $("#chat-view").classList.toggle("hidden", isDashboard);
+  $("#inspector-view").classList.toggle("hidden", isDashboard);
+  $("#dashboard-view").classList.toggle("hidden", !isDashboard);
+  if (isDashboard) {
+    loadDailyChanges().catch(() => {});
+  }
+}
+
+function renderDashboardGroupFilter() {
+  const current = $("#dashboard-group-filter").value;
+  $("#dashboard-group-filter").innerHTML = `
+    <option value="">Semua grup</option>
+    ${state.groups
+      .map((group) => `<option value="${group.id}">${escapeHtml(group.name)} (${escapeHtml(group.wa_chat_id)})</option>`)
+      .join("")}
+  `;
+  $("#dashboard-group-filter").value = current;
+}
+
+async function loadDailyChanges() {
+  const params = new URLSearchParams();
+  params.set("limit", "300");
+  if ($("#dashboard-group-filter").value) params.set("group_id", $("#dashboard-group-filter").value);
+  if ($("#dashboard-date-filter").value) params.set("date", $("#dashboard-date-filter").value);
+  if ($("#dashboard-keyword-filter").value.trim()) params.set("q", $("#dashboard-keyword-filter").value.trim());
+  const data = await api(`/api/daily-changes?${params.toString()}`);
+  state.dailyChanges = data.daily_changes || [];
+  renderDailyChangeStats(data.totals || {});
+  renderDailyChanges(state.dailyChanges);
+}
+
+function renderDailyChangeStats(totals) {
+  $("#daily-change-stats").innerHTML = [
+    ["rows", "Catatan"],
+    ["groups", "Grup"],
+    ["teachers", "Guru"],
+    ["students", "Murid"],
+  ]
+    .map(
+      ([key, label]) => `
+        <div class="stat">
+          <span class="stat-value">${Number(totals[key] || 0)}</span>
+          <span class="stat-label">${label}</span>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function renderDailyChanges(rows) {
+  const container = $("#daily-change-table");
+  if (!rows.length) {
+    container.innerHTML = `<tr><td colspan="7" class="table-empty">Belum ada data harian untuk filter ini.</td></tr>`;
+    return;
+  }
+  container.innerHTML = rows
+    .map(
+      (row) => `
+        <tr>
+          <td>
+            <strong>${escapeHtml(row.group_id)}</strong>
+            <div class="result-context">${escapeHtml(row.group_name || row.wa_chat_id || "-")}</div>
+          </td>
+          <td>${escapeHtml(row.report_date || "-")}</td>
+          <td>${escapeHtml(row.teacher_name || "-")}</td>
+          <td>${escapeHtml(row.student_name || "-")}</td>
+          <td>${escapeHtml(row.bot || "-")}</td>
+          <td>${escapeHtml(row.changed || "-")}</td>
+          <td>${escapeHtml(row.changed_by || "-")}</td>
+        </tr>
+      `
+    )
+    .join("");
+}
+
 async function runGlobalSearch() {
   const keyword = $("#global-search").value.trim();
   if (!keyword) {
@@ -304,6 +392,8 @@ async function loadStats() {
 
 $("#login-form").addEventListener("submit", login);
 $("#logout-button").addEventListener("click", logout);
+$("#chat-tab").addEventListener("click", () => switchView("chat"));
+$("#dashboard-tab").addEventListener("click", () => switchView("dashboard"));
 $("#refresh-button").addEventListener("click", () => refreshAll());
 $("#group-search").addEventListener("input", () => loadGroups().catch(() => {}));
 $("#apply-filter").addEventListener("click", () => loadMessages({ preserveScroll: false }));
@@ -317,6 +407,17 @@ $("#reset-filter").addEventListener("click", () => {
 $("#global-search-button").addEventListener("click", runGlobalSearch);
 $("#global-search").addEventListener("keydown", (event) => {
   if (event.key === "Enter") runGlobalSearch();
+});
+$("#dashboard-refresh-button").addEventListener("click", () => loadDailyChanges());
+$("#dashboard-apply-filter").addEventListener("click", () => loadDailyChanges());
+$("#dashboard-reset-filter").addEventListener("click", () => {
+  $("#dashboard-group-filter").value = "";
+  $("#dashboard-date-filter").value = "";
+  $("#dashboard-keyword-filter").value = "";
+  loadDailyChanges();
+});
+$("#dashboard-keyword-filter").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") loadDailyChanges();
 });
 
 boot().catch(() => show("login"));

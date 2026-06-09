@@ -39,14 +39,21 @@
           <button id="logout-button" class="icon-button" title="Keluar" aria-label="Keluar">Q</button>
         </header>
 
-        <div class="search-box">
-          <input id="group-search" type="search" placeholder="Cari grup" />
-        </div>
+        <nav class="view-switcher" aria-label="Navigasi aplikasi">
+          <button id="chat-tab" class="view-tab active" type="button">Chat</button>
+          <button id="dashboard-tab" class="view-tab" type="button">Dashboard</button>
+        </nav>
 
-        <section id="group-list" class="group-list"></section>
+        <div id="chat-sidebar-tools" class="sidebar-tools">
+          <div class="search-box">
+            <input id="group-search" type="search" placeholder="Cari grup" />
+          </div>
+
+          <section id="group-list" class="group-list"></section>
+        </div>
       </aside>
 
-      <section class="conversation">
+      <section id="chat-view" class="conversation">
         <header class="conversation-header">
           <div>
             <p id="selected-group-meta" class="eyebrow">Belum ada grup dipilih</p>
@@ -73,7 +80,50 @@
         </section>
       </section>
 
-      <aside class="inspector">
+      <section id="dashboard-view" class="dashboard hidden">
+        <header class="dashboard-header">
+          <div>
+            <p class="eyebrow">Laporan harian</p>
+            <h2>Dashboard Perubahan Grup</h2>
+          </div>
+          <button id="dashboard-refresh-button" class="secondary-button">Refresh</button>
+        </header>
+
+        <section class="dashboard-filters">
+          <select id="dashboard-group-filter">
+            <option value="">Semua grup</option>
+          </select>
+          <input id="dashboard-date-filter" type="date" />
+          <input id="dashboard-keyword-filter" type="search" placeholder="Cari guru, murid, bot, pengubah" />
+          <button id="dashboard-apply-filter" class="secondary-button">Filter</button>
+          <button id="dashboard-reset-filter" class="ghost-button">Reset</button>
+        </section>
+
+        <section id="daily-change-stats" class="daily-stats"></section>
+
+        <section class="daily-table-shell">
+          <table class="daily-table">
+            <thead>
+              <tr>
+                <th>Group ID</th>
+                <th>Tanggal</th>
+                <th>Nama Guru</th>
+                <th>Nama Murid</th>
+                <th>Bot</th>
+                <th>Berubah</th>
+                <th>Pengubah</th>
+              </tr>
+            </thead>
+            <tbody id="daily-change-table">
+              <tr>
+                <td colspan="7" class="table-empty">Belum ada data harian.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </section>
+
+      <aside id="inspector-view" class="inspector">
         <section class="panel">
           <div class="panel-title">
             <h3>Search Global</h3>
