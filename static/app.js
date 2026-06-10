@@ -57,6 +57,44 @@ function truncate(value, length = 120) {
   return text.length > length ? `${text.slice(0, length - 1)}...` : text;
 }
 
+function formatShortDate(value) {
+  if (!value) return "-";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+  }).format(date);
+}
+
+function compactNumber(value) {
+  return new Intl.NumberFormat("id-ID", {
+    notation: Number(value || 0) >= 10000 ? "compact" : "standard",
+    maximumFractionDigits: 1,
+  }).format(Number(value || 0));
+}
+
+function countBy(rows, keyGetter, labelGetter) {
+  const counts = new Map();
+  rows.forEach((row) => {
+    const key = keyGetter(row);
+    if (!key) return;
+    const current = counts.get(key) || {
+      key,
+      label: labelGetter ? labelGetter(row) : key,
+      count: 0,
+      latestDate: "",
+      row,
+    };
+    current.count += 1;
+    if ((row.report_date || "") > current.latestDate) current.latestDate = row.report_date || "";
+    counts.set(key, current);
+  });
+  return Array.from(counts.values()).sort(
+    (a, b) => b.count - a.count || String(a.label).localeCompare(String(b.label), "id")
+  );
+}
+
 async function boot() {
   const session = await api("/api/me");
   if (session.user) {
@@ -275,25 +313,208 @@ async function loadDailyChanges() {
   if ($("#dashboard-keyword-filter").value.trim()) params.set("q", $("#dashboard-keyword-filter").value.trim());
   const data = await api(`/api/daily-changes?${params.toString()}`);
   state.dailyChanges = data.daily_changes || [];
-  renderDailyChangeStats(data.totals || {});
+  const summary = summarizeDailyChanges(state.dailyChanges, data.totals || {}, data.pagination || {});
+  renderDailyChangeStats(summary);
+  renderDashboardInsights(summary);
+  renderDailyChangeChart(summary);
+  renderDashboardBreakdowns(summary);
   renderDailyChanges(state.dailyChanges);
 }
 
-function renderDailyChangeStats(totals) {
+function summarizeDailyChanges(rows, totals, pagination) {
+  const dailySeries = countBy(rows, (row) => row.report_date || "-", (row) => row.report_date || "-")
+    .map((item) => ({ date: item.key, count: item.count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const groups = countBy(
+    rows,
+    (row) => row.group_id,
+    (row) => row.group_name || row.wa_chat_id || row.group_id
+  );
+  const bots = countBy(rows, (row) => row.bot || "-", (row) => row.bot || "-");
+  const changers = countBy(rows, (row) => row.changed_by || "-", (row) => row.changed_by || "-");
+  const changeTypes = countBy(rows, (row) => row.changed || "-", (row) => row.changed || "-");
+  const teachers = countBy(rows, (row) => row.teacher_name || "-", (row) => row.teacher_name || "-");
+  const students = countBy(rows, (row) => row.student_name || "-", (row) => row.student_name || "-");
+  const latestPoint = dailySeries[dailySeries.length - 1] || { date: "", count: 0 };
+  const previousPoint = dailySeries[dailySeries.length - 2] || { date: "", count: 0 };
+  const peakPoint = dailySeries.reduce(
+    (peak, point) => (point.count > peak.count ? point : peak),
+    { date: "", count: 0 }
+  );
+  const totalRows = Number(totals.rows || rows.length || 0);
+
+  return {
+    rows,
+    totals,
+    pagination,
+    dailySeries,
+    recentSeries: dailySeries.slice(-14),
+    groups,
+    bots,
+    changers,
+    changeTypes,
+    teachers,
+    students,
+    latestPoint,
+    previousPoint,
+    peakPoint,
+    latestDelta: latestPoint.count - previousPoint.count,
+    totalRows,
+    isTruncated: Number(pagination.returned || rows.length) < totalRows,
+  };
+}
+
+function renderDailyChangeStats(summary) {
+  const topGroup = summary.groups[0];
+  const topChangeType = summary.changeTypes[0];
+  const latestLabel = summary.latestPoint.date ? formatShortDate(summary.latestPoint.date) : "-";
   $("#daily-change-stats").innerHTML = [
-    ["rows", "Catatan"],
-    ["groups", "Grup"],
-    ["teachers", "Guru"],
-    ["students", "Murid"],
+    [compactNumber(summary.totalRows), "Catatan perubahan", summary.isTruncated ? "Agregasi memakai data terbaru" : "Semua data sesuai filter"],
+    [compactNumber(summary.totals.groups || summary.groups.length), "Grup terdampak", topGroup ? truncate(topGroup.label, 42) : "Belum ada grup"],
+    [compactNumber(summary.latestPoint.count), `Perubahan ${latestLabel}`, formatDelta(summary.latestDelta)],
+    [compactNumber(summary.totals.students || summary.students.length), "Murid unik", topChangeType ? `${truncate(topChangeType.label, 34)} dominan` : "Belum ada pola"],
   ]
     .map(
-      ([key, label]) => `
-        <div class="stat">
-          <span class="stat-value">${Number(totals[key] || 0)}</span>
-          <span class="stat-label">${label}</span>
+      ([value, label, helper]) => `
+        <div class="stat dashboard-stat">
+          <span class="stat-value">${escapeHtml(value)}</span>
+          <span class="stat-label">${escapeHtml(label)}</span>
+          <span class="stat-helper">${escapeHtml(helper)}</span>
         </div>
       `
     )
+    .join("");
+}
+
+function formatDelta(value) {
+  if (!value) return "Sama dengan hari sebelumnya";
+  return `${value > 0 ? "+" : ""}${compactNumber(value)} dari hari sebelumnya`;
+}
+
+function renderDashboardInsights(summary) {
+  const topGroup = summary.groups[0];
+  const topBot = summary.bots[0];
+  const topChanger = summary.changers[0];
+  const peakPoint = summary.peakPoint;
+  if (!summary.rows.length) {
+    $("#dashboard-insights").innerHTML = `
+      <div class="insight-empty">
+        Belum ada data perubahan harian untuk filter ini.
+      </div>
+    `;
+    return;
+  }
+
+  $("#dashboard-insights").innerHTML = `
+    <div class="insight-item">
+      <span class="insight-kicker">Puncak aktivitas</span>
+      <strong>${escapeHtml(formatShortDate(peakPoint.date))}</strong>
+      <span>${compactNumber(peakPoint.count)} catatan perubahan</span>
+    </div>
+    <div class="insight-item">
+      <span class="insight-kicker">Grup paling aktif</span>
+      <strong>${escapeHtml(truncate(topGroup?.label || "-", 46))}</strong>
+      <span>${compactNumber(topGroup?.count || 0)} catatan terbaru</span>
+    </div>
+    <div class="insight-item">
+      <span class="insight-kicker">Pengubah utama</span>
+      <strong>${escapeHtml(truncate(topChanger?.label || "-", 46))}</strong>
+      <span>${escapeHtml(truncate(topBot?.label || "-", 36))} paling sering muncul</span>
+    </div>
+  `;
+}
+
+function renderDailyChangeChart(summary) {
+  const container = $("#daily-change-chart");
+  const caption = $("#daily-change-chart-caption");
+  if (!summary.recentSeries.length) {
+    container.classList.add("empty-state");
+    container.innerHTML = "Belum ada data untuk chart harian.";
+    caption.textContent = "";
+    return;
+  }
+
+  const maxCount = Math.max(...summary.recentSeries.map((point) => point.count), 1);
+  container.classList.remove("empty-state");
+  container.innerHTML = `
+    <div class="daily-chart-bars" style="--chart-count: ${summary.recentSeries.length}">
+      ${summary.recentSeries
+        .map((point) => {
+          const height = Math.max(8, Math.round((point.count / maxCount) * 100));
+          return `
+            <button class="daily-bar" type="button" data-date="${escapeHtml(point.date)}"
+              style="--bar-height: ${height}%"
+              aria-label="${escapeHtml(`${point.count} perubahan pada ${point.date}`)}">
+              <span class="daily-bar-value">${compactNumber(point.count)}</span>
+              <span class="daily-bar-fill"></span>
+              <span class="daily-bar-label">${escapeHtml(formatShortDate(point.date))}</span>
+            </button>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+  caption.textContent = summary.isTruncated ? "300 catatan terbaru" : `${summary.recentSeries.length} hari aktif`;
+}
+
+function renderDashboardBreakdowns(summary) {
+  const container = $("#dashboard-breakdowns");
+  if (!summary.rows.length) {
+    container.innerHTML = `<div class="empty-state breakdown-empty">Belum ada ranking untuk filter ini.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="breakdown-column">
+      <h4>Grup teratas</h4>
+      ${renderGroupRanking(summary.groups.slice(0, 5), summary.totalRows)}
+    </div>
+    <div class="breakdown-column">
+      <h4>Jenis perubahan</h4>
+      ${renderPlainRanking(summary.changeTypes.slice(0, 5), summary.totalRows)}
+    </div>
+    <div class="breakdown-column">
+      <h4>Bot & pengubah</h4>
+      ${renderPlainRanking([...summary.bots.slice(0, 3), ...summary.changers.slice(0, 3)], summary.totalRows)}
+    </div>
+  `;
+}
+
+function renderGroupRanking(items, total) {
+  if (!items.length) return `<div class="result-context">Belum ada grup.</div>`;
+  return items
+    .map((item, index) => {
+      const share = Math.max(4, Math.round((item.count / Math.max(total, 1)) * 100));
+      return `
+        <button class="rank-row dashboard-chat-link" type="button" data-group-id="${escapeHtml(item.key)}">
+          <span class="rank-index">${index + 1}</span>
+          <span class="rank-copy">
+            <strong>${escapeHtml(truncate(item.label, 52))}</strong>
+            <span>${compactNumber(item.count)} catatan | terakhir ${escapeHtml(formatShortDate(item.latestDate))}</span>
+          </span>
+          <span class="rank-meter" aria-hidden="true"><span style="width: ${share}%"></span></span>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function renderPlainRanking(items, total) {
+  if (!items.length) return `<div class="result-context">Belum ada data.</div>`;
+  return items
+    .map((item, index) => {
+      const share = Math.max(3, Math.round((item.count / Math.max(total, 1)) * 100));
+      return `
+        <div class="rank-row">
+          <span class="rank-index">${index + 1}</span>
+          <span class="rank-copy">
+            <strong>${escapeHtml(truncate(item.label, 52))}</strong>
+            <span>${compactNumber(item.count)} catatan</span>
+          </span>
+          <span class="rank-meter" aria-hidden="true"><span style="width: ${share}%"></span></span>
+        </div>
+      `;
+    })
     .join("");
 }
 
@@ -470,9 +691,16 @@ $("#dashboard-reset-filter").addEventListener("click", () => {
 $("#dashboard-keyword-filter").addEventListener("keydown", (event) => {
   if (event.key === "Enter") loadDailyChanges();
 });
-$("#daily-change-table").addEventListener("click", (event) => {
-  const button = event.target.closest(".daily-group-button");
-  if (button) openDashboardChat(button.dataset.groupId);
+$("#dashboard-view").addEventListener("click", (event) => {
+  const bar = event.target.closest(".daily-bar");
+  if (bar) {
+    $("#dashboard-date-filter").value = bar.dataset.date;
+    loadDailyChanges();
+    return;
+  }
+
+  const chatButton = event.target.closest(".dashboard-chat-link, .daily-group-button");
+  if (chatButton) openDashboardChat(chatButton.dataset.groupId);
 });
 $("#chat-modal-close").addEventListener("click", closeChatModal);
 $("#chat-modal").addEventListener("click", (event) => {

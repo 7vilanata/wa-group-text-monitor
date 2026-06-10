@@ -99,7 +99,35 @@
           <button id="dashboard-reset-filter" class="ghost-button">Reset</button>
         </section>
 
-        <section id="daily-change-stats" class="daily-stats"></section>
+        <section class="dashboard-summary">
+          <div id="daily-change-stats" class="daily-stats"></div>
+          <aside id="dashboard-insights" class="dashboard-insights"></aside>
+        </section>
+
+        <section class="dashboard-analytics">
+          <section class="analytics-panel daily-trend-panel">
+            <div class="panel-title">
+              <div>
+                <p class="eyebrow">Tren</p>
+                <h3>Perubahan per hari</h3>
+              </div>
+              <span id="daily-change-chart-caption" class="chart-caption"></span>
+            </div>
+            <div id="daily-change-chart" class="daily-chart empty-state">
+              Belum ada data untuk chart harian.
+            </div>
+          </section>
+
+          <section class="analytics-panel">
+            <div class="panel-title">
+              <div>
+                <p class="eyebrow">Fokus</p>
+                <h3>Grup dan pengubah teratas</h3>
+              </div>
+            </div>
+            <div id="dashboard-breakdowns" class="dashboard-breakdowns"></div>
+          </section>
+        </section>
 
         <section class="daily-table-shell">
           <table class="daily-table">
