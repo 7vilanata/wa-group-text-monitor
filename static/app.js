@@ -95,6 +95,37 @@ function countBy(rows, keyGetter, labelGetter) {
   );
 }
 
+function normalizeValue(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isYes(value) {
+  return ["ya", "yes", "true", "1", "berubah"].includes(normalizeValue(value));
+}
+
+function isNo(value) {
+  return ["tidak", "no", "false", "0", "tidak ada"].includes(normalizeValue(value));
+}
+
+function percent(part, total) {
+  if (!total) return 0;
+  return Math.round((Number(part || 0) / Number(total || 1)) * 100);
+}
+
+function renderStatusBadge(value, kind) {
+  const raw = String(value || "-");
+  const normalized = normalizeValue(raw);
+  let tone = "neutral";
+  if (kind === "bot") tone = isYes(raw) ? "success" : "muted";
+  if (kind === "changed") tone = isYes(raw) ? "warning" : isNo(raw) ? "success" : "neutral";
+  if (kind === "changer") {
+    if (normalized === "guru") tone = "info";
+    else if (normalized === "murid") tone = "warning";
+    else if (normalized === "tidak ada") tone = "muted";
+  }
+  return `<span class="status-chip ${tone}">${escapeHtml(raw)}</span>`;
+}
+
 async function boot() {
   const session = await api("/api/me");
   if (session.user) {
@@ -322,26 +353,49 @@ async function loadDailyChanges() {
 }
 
 function summarizeDailyChanges(rows, totals, pagination) {
-  const dailySeries = countBy(rows, (row) => row.report_date || "-", (row) => row.report_date || "-")
-    .map((item) => ({ date: item.key, count: item.count }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const dailyMap = new Map();
+  rows.forEach((row) => {
+    const date = row.report_date || "-";
+    const current = dailyMap.get(date) || { date, count: 0, yes: 0, no: 0, unknown: 0, botActive: 0 };
+    current.count += 1;
+    if (isYes(row.changed)) current.yes += 1;
+    else if (isNo(row.changed)) current.no += 1;
+    else current.unknown += 1;
+    if (isYes(row.bot)) current.botActive += 1;
+    dailyMap.set(date, current);
+  });
+  const dailySeries = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
   const groups = countBy(
     rows,
     (row) => row.group_id,
     (row) => row.group_name || row.wa_chat_id || row.group_id
   );
+  const changedRows = rows.filter((row) => isYes(row.changed));
+  const unchangedRows = rows.filter((row) => isNo(row.changed));
+  const botActiveRows = rows.filter((row) => isYes(row.bot));
+  const botInactiveRows = rows.filter((row) => isNo(row.bot));
   const bots = countBy(rows, (row) => row.bot || "-", (row) => row.bot || "-");
   const changers = countBy(rows, (row) => row.changed_by || "-", (row) => row.changed_by || "-");
   const changeTypes = countBy(rows, (row) => row.changed || "-", (row) => row.changed || "-");
   const teachers = countBy(rows, (row) => row.teacher_name || "-", (row) => row.teacher_name || "-");
+  const changedTeachers = countBy(changedRows, (row) => row.teacher_name || "-", (row) => row.teacher_name || "-");
   const students = countBy(rows, (row) => row.student_name || "-", (row) => row.student_name || "-");
+  const changedGroups = countBy(
+    changedRows,
+    (row) => row.group_id,
+    (row) => row.group_name || row.wa_chat_id || row.group_id
+  );
   const latestPoint = dailySeries[dailySeries.length - 1] || { date: "", count: 0 };
   const previousPoint = dailySeries[dailySeries.length - 2] || { date: "", count: 0 };
   const peakPoint = dailySeries.reduce(
-    (peak, point) => (point.count > peak.count ? point : peak),
-    { date: "", count: 0 }
+    (peak, point) => (point.yes > peak.yes ? point : peak),
+    { date: "", count: 0, yes: 0, no: 0, unknown: 0 }
   );
   const totalRows = Number(totals.rows || rows.length || 0);
+  const changedCount = changedRows.length;
+  const unchangedCount = unchangedRows.length;
+  const botActiveCount = botActiveRows.length;
+  const botInactiveCount = botInactiveRows.length;
 
   return {
     rows,
@@ -354,25 +408,31 @@ function summarizeDailyChanges(rows, totals, pagination) {
     changers,
     changeTypes,
     teachers,
+    changedTeachers,
     students,
+    changedGroups,
     latestPoint,
     previousPoint,
     peakPoint,
-    latestDelta: latestPoint.count - previousPoint.count,
+    latestDelta: (latestPoint.yes || 0) - (previousPoint.yes || 0),
     totalRows,
+    changedCount,
+    unchangedCount,
+    botActiveCount,
+    botInactiveCount,
+    changedRate: percent(changedCount, rows.length),
+    botActiveRate: percent(botActiveCount, rows.length),
     isTruncated: Number(pagination.returned || rows.length) < totalRows,
   };
 }
 
 function renderDailyChangeStats(summary) {
-  const topGroup = summary.groups[0];
-  const topChangeType = summary.changeTypes[0];
   const latestLabel = summary.latestPoint.date ? formatShortDate(summary.latestPoint.date) : "-";
   $("#daily-change-stats").innerHTML = [
-    [compactNumber(summary.totalRows), "Catatan perubahan", summary.isTruncated ? "Agregasi memakai data terbaru" : "Semua data sesuai filter"],
-    [compactNumber(summary.totals.groups || summary.groups.length), "Grup terdampak", topGroup ? truncate(topGroup.label, 42) : "Belum ada grup"],
-    [compactNumber(summary.latestPoint.count), `Perubahan ${latestLabel}`, formatDelta(summary.latestDelta)],
-    [compactNumber(summary.totals.students || summary.students.length), "Murid unik", topChangeType ? `${truncate(topChangeType.label, 34)} dominan` : "Belum ada pola"],
+    [compactNumber(summary.totalRows), "Catatan dicek", summary.isTruncated ? "Agregasi memakai data terbaru" : `${compactNumber(summary.groups.length)} grup dalam filter`],
+    [`${summary.changedRate}%`, "Berubah = Ya", `${compactNumber(summary.changedCount)} Ya, ${compactNumber(summary.unchangedCount)} Tidak`],
+    [`${summary.botActiveRate}%`, "Bot aktif", `${compactNumber(summary.botActiveCount)} true, ${compactNumber(summary.botInactiveCount)} false`],
+    [compactNumber(summary.latestPoint.yes || 0), `Ya pada ${latestLabel}`, formatDelta(summary.latestDelta)],
   ]
     .map(
       ([value, label, helper]) => `
@@ -392,8 +452,8 @@ function formatDelta(value) {
 }
 
 function renderDashboardInsights(summary) {
-  const topGroup = summary.groups[0];
-  const topBot = summary.bots[0];
+  const topChangedGroup = summary.changedGroups[0] || summary.groups[0];
+  const topChangedTeacher = summary.changedTeachers[0] || summary.teachers[0];
   const topChanger = summary.changers[0];
   const peakPoint = summary.peakPoint;
   if (!summary.rows.length) {
@@ -407,19 +467,19 @@ function renderDashboardInsights(summary) {
 
   $("#dashboard-insights").innerHTML = `
     <div class="insight-item">
-      <span class="insight-kicker">Puncak aktivitas</span>
+      <span class="insight-kicker">Puncak berubah</span>
       <strong>${escapeHtml(formatShortDate(peakPoint.date))}</strong>
-      <span>${compactNumber(peakPoint.count)} catatan perubahan</span>
+      <span>${compactNumber(peakPoint.yes)} Ya dari ${compactNumber(peakPoint.count)} catatan</span>
     </div>
     <div class="insight-item">
-      <span class="insight-kicker">Grup paling aktif</span>
-      <strong>${escapeHtml(truncate(topGroup?.label || "-", 46))}</strong>
-      <span>${compactNumber(topGroup?.count || 0)} catatan terbaru</span>
+      <span class="insight-kicker">Guru paling sering berubah</span>
+      <strong>${escapeHtml(truncate(topChangedTeacher?.label || "-", 46))}</strong>
+      <span>${compactNumber(topChangedTeacher?.count || 0)} catatan Berubah = Ya</span>
     </div>
     <div class="insight-item">
-      <span class="insight-kicker">Pengubah utama</span>
-      <strong>${escapeHtml(truncate(topChanger?.label || "-", 46))}</strong>
-      <span>${escapeHtml(truncate(topBot?.label || "-", 36))} paling sering muncul</span>
+      <span class="insight-kicker">Grup prioritas</span>
+      <strong>${escapeHtml(truncate(topChangedGroup?.label || "-", 46))}</strong>
+      <span>${escapeHtml(truncate(topChanger?.label || "-", 32))} pengubah paling dominan</span>
     </div>
   `;
 }
@@ -441,20 +501,34 @@ function renderDailyChangeChart(summary) {
       ${summary.recentSeries
         .map((point) => {
           const height = Math.max(8, Math.round((point.count / maxCount) * 100));
+          const yesShare = percent(point.yes, point.count);
+          const noShare = percent(point.no, point.count);
+          const unknownShare = Math.max(0, 100 - yesShare - noShare);
           return `
             <button class="daily-bar" type="button" data-date="${escapeHtml(point.date)}"
               style="--bar-height: ${height}%"
-              aria-label="${escapeHtml(`${point.count} perubahan pada ${point.date}`)}">
-              <span class="daily-bar-value">${compactNumber(point.count)}</span>
-              <span class="daily-bar-fill"></span>
+              aria-label="${escapeHtml(`${point.yes} Ya, ${point.no} Tidak pada ${point.date}`)}">
+              <span class="daily-bar-value">${compactNumber(point.yes)} Ya</span>
+              <span class="daily-bar-fill stacked-bar">
+                <span class="stack-segment yes" style="height: ${Math.max(point.yes ? 8 : 0, yesShare)}%"></span>
+                <span class="stack-segment no" style="height: ${Math.max(point.no ? 8 : 0, noShare)}%"></span>
+                <span class="stack-segment unknown" style="height: ${Math.max(point.unknown ? 8 : 0, unknownShare)}%"></span>
+              </span>
               <span class="daily-bar-label">${escapeHtml(formatShortDate(point.date))}</span>
             </button>
           `;
         })
         .join("")}
     </div>
+    <div class="chart-legend" aria-hidden="true">
+      <span><i class="yes"></i>Ya</span>
+      <span><i class="no"></i>Tidak</span>
+      <span><i class="unknown"></i>Kosong</span>
+    </div>
   `;
-  caption.textContent = summary.isTruncated ? "300 catatan terbaru" : `${summary.recentSeries.length} hari aktif`;
+  caption.textContent = summary.isTruncated
+    ? "300 catatan terbaru"
+    : `${compactNumber(summary.changedCount)} Ya dari ${compactNumber(summary.rows.length)} catatan`;
 }
 
 function renderDashboardBreakdowns(summary) {
@@ -466,22 +540,22 @@ function renderDashboardBreakdowns(summary) {
 
   container.innerHTML = `
     <div class="breakdown-column">
-      <h4>Grup teratas</h4>
-      ${renderGroupRanking(summary.groups.slice(0, 5), summary.totalRows)}
+      <h4>Grup sering berubah</h4>
+      ${renderGroupRanking(summary.changedGroups.slice(0, 5), Math.max(summary.changedCount, 1), "Ya")}
     </div>
     <div class="breakdown-column">
-      <h4>Jenis perubahan</h4>
-      ${renderPlainRanking(summary.changeTypes.slice(0, 5), summary.totalRows)}
+      <h4>Pengubah</h4>
+      ${renderPlainRanking(summary.changers.slice(0, 5), summary.rows.length)}
     </div>
     <div class="breakdown-column">
-      <h4>Bot & pengubah</h4>
-      ${renderPlainRanking([...summary.bots.slice(0, 3), ...summary.changers.slice(0, 3)], summary.totalRows)}
+      <h4>Guru sering berubah</h4>
+      ${renderPlainRanking(summary.changedTeachers.slice(0, 5), Math.max(summary.changedCount, 1))}
     </div>
   `;
 }
 
-function renderGroupRanking(items, total) {
-  if (!items.length) return `<div class="result-context">Belum ada grup.</div>`;
+function renderGroupRanking(items, total, suffix = "catatan") {
+  if (!items.length) return `<div class="result-context">Belum ada grup dengan Berubah = Ya.</div>`;
   return items
     .map((item, index) => {
       const share = Math.max(4, Math.round((item.count / Math.max(total, 1)) * 100));
@@ -490,7 +564,7 @@ function renderGroupRanking(items, total) {
           <span class="rank-index">${index + 1}</span>
           <span class="rank-copy">
             <strong>${escapeHtml(truncate(item.label, 52))}</strong>
-            <span>${compactNumber(item.count)} catatan | terakhir ${escapeHtml(formatShortDate(item.latestDate))}</span>
+            <span>${compactNumber(item.count)} ${escapeHtml(suffix)} | terakhir ${escapeHtml(formatShortDate(item.latestDate))}</span>
           </span>
           <span class="rank-meter" aria-hidden="true"><span style="width: ${share}%"></span></span>
         </button>
@@ -525,24 +599,25 @@ function renderDailyChanges(rows) {
     return;
   }
   container.innerHTML = rows
-    .map(
-      (row) => `
+    .map((row) => {
+      const context = row.group_name || row.wa_chat_id || "";
+      return `
         <tr>
           <td>
             <button class="daily-group-button" type="button" data-group-id="${escapeHtml(row.group_id)}">
               ${escapeHtml(row.group_id)}
             </button>
-            <div class="result-context">${escapeHtml(row.group_name || row.wa_chat_id || "-")}</div>
+            ${context ? `<div class="result-context">${escapeHtml(context)}</div>` : ""}
           </td>
-          <td>${escapeHtml(row.report_date || "-")}</td>
+          <td class="date-cell">${escapeHtml(row.report_date || "-")}</td>
           <td>${escapeHtml(row.teacher_name || "-")}</td>
           <td>${escapeHtml(row.student_name || "-")}</td>
-          <td>${escapeHtml(row.bot || "-")}</td>
-          <td>${escapeHtml(row.changed || "-")}</td>
-          <td>${escapeHtml(row.changed_by || "-")}</td>
+          <td>${renderStatusBadge(row.bot, "bot")}</td>
+          <td>${renderStatusBadge(row.changed, "changed")}</td>
+          <td>${renderStatusBadge(row.changed_by, "changer")}</td>
         </tr>
-      `
-    )
+      `;
+    })
     .join("");
 }
 
