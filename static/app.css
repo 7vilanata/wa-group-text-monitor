@@ -165,6 +165,10 @@ select:focus {
   overflow: hidden;
 }
 
+.app-shell.dashboard-mode {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .sidebar,
 .conversation,
 .inspector {
@@ -367,6 +371,10 @@ select:focus {
   background: #f4f6f8;
 }
 
+.dashboard-mode .dashboard {
+  grid-column: 1 / -1;
+}
+
 .dashboard-header {
   display: flex;
   align-items: center;
@@ -383,6 +391,34 @@ select:focus {
   padding: 12px;
   border-bottom: 1px solid var(--line);
   background: #fbfcfd;
+}
+
+.dashboard-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.dashboard-section-tab {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: #314151;
+  font-weight: 850;
+}
+
+.dashboard-section-tab.active {
+  border-color: #9dd2af;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dashboard-section {
+  min-height: 0;
 }
 
 .dashboard-summary {
@@ -469,6 +505,11 @@ select:focus {
   grid-template-columns: minmax(360px, 1.15fr) minmax(320px, 0.85fr);
   gap: 12px;
   padding: 12px;
+}
+
+.summary-analytics,
+.priority-analytics {
+  grid-template-columns: 1fr;
 }
 
 .analytics-panel {

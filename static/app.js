@@ -5,6 +5,7 @@ const state = {
   currentView: "chat",
   contacts: [],
   dailyChanges: [],
+  dashboardSection: "summary",
   pollTimer: null,
   lastRenderedGroupId: null,
 };
@@ -314,8 +315,10 @@ function renderMessages(messages, { preserveScroll = true } = {}) {
 function switchView(view) {
   state.currentView = view;
   const isDashboard = view === "dashboard";
+  $("#app-view").classList.toggle("dashboard-mode", isDashboard);
   $("#chat-tab").classList.toggle("active", !isDashboard);
   $("#dashboard-tab").classList.toggle("active", isDashboard);
+  $(".sidebar").classList.toggle("hidden", isDashboard);
   $("#chat-sidebar-tools").classList.toggle("hidden", isDashboard);
   $("#chat-view").classList.toggle("hidden", isDashboard);
   $("#inspector-view").classList.toggle("hidden", isDashboard);
@@ -323,6 +326,15 @@ function switchView(view) {
   if (isDashboard) {
     loadDailyChanges().catch(() => {});
   }
+}
+
+function switchDashboardSection(section) {
+  state.dashboardSection = section;
+  const isSummary = section === "summary";
+  $("#dashboard-summary-tab").classList.toggle("active", isSummary);
+  $("#dashboard-priority-tab").classList.toggle("active", !isSummary);
+  $("#dashboard-summary-section").classList.toggle("hidden", !isSummary);
+  $("#dashboard-priority-section").classList.toggle("hidden", isSummary);
 }
 
 function renderDashboardGroupFilter() {
@@ -757,6 +769,8 @@ $("#global-search").addEventListener("keydown", (event) => {
 });
 $("#dashboard-refresh-button").addEventListener("click", () => loadDailyChanges());
 $("#dashboard-apply-filter").addEventListener("click", () => loadDailyChanges());
+$("#dashboard-summary-tab").addEventListener("click", () => switchDashboardSection("summary"));
+$("#dashboard-priority-tab").addEventListener("click", () => switchDashboardSection("priority"));
 $("#dashboard-reset-filter").addEventListener("click", () => {
   $("#dashboard-group-filter").value = "";
   $("#dashboard-date-filter").value = "";

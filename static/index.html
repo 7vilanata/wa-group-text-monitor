@@ -99,26 +99,36 @@
           <button id="dashboard-reset-filter" class="ghost-button">Reset</button>
         </section>
 
-        <section class="dashboard-summary">
-          <div id="daily-change-stats" class="daily-stats"></div>
-          <aside id="dashboard-insights" class="dashboard-insights"></aside>
+        <section class="dashboard-sections" aria-label="Bagian dashboard">
+          <button id="dashboard-summary-tab" class="dashboard-section-tab active" type="button">Ringkasan</button>
+          <button id="dashboard-priority-tab" class="dashboard-section-tab" type="button">Prioritas</button>
         </section>
 
-        <section class="dashboard-analytics">
-          <section class="analytics-panel daily-trend-panel">
-            <div class="panel-title">
-              <div>
-                <p class="eyebrow">Tren</p>
-                <h3>Ya vs Tidak per hari</h3>
-              </div>
-              <span id="daily-change-chart-caption" class="chart-caption"></span>
-            </div>
-            <div id="daily-change-chart" class="daily-chart empty-state">
-              Belum ada data untuk chart harian.
-            </div>
+        <section id="dashboard-summary-section" class="dashboard-section">
+          <section class="dashboard-summary">
+            <div id="daily-change-stats" class="daily-stats"></div>
+            <aside id="dashboard-insights" class="dashboard-insights"></aside>
           </section>
 
-          <section class="analytics-panel">
+          <section class="dashboard-analytics summary-analytics">
+            <section class="analytics-panel daily-trend-panel">
+              <div class="panel-title">
+                <div>
+                  <p class="eyebrow">Tren</p>
+                  <h3>Ya vs Tidak per hari</h3>
+                </div>
+                <span id="daily-change-chart-caption" class="chart-caption"></span>
+              </div>
+              <div id="daily-change-chart" class="daily-chart empty-state">
+                Belum ada data untuk chart harian.
+              </div>
+            </section>
+          </section>
+        </section>
+
+        <section id="dashboard-priority-section" class="dashboard-section hidden">
+          <section class="dashboard-analytics priority-analytics">
+            <section class="analytics-panel">
             <div class="panel-title">
               <div>
                 <p class="eyebrow">Fokus</p>
@@ -126,28 +136,29 @@
               </div>
             </div>
             <div id="dashboard-breakdowns" class="dashboard-breakdowns"></div>
+            </section>
           </section>
-        </section>
 
-        <section class="daily-table-shell">
-          <table class="daily-table">
-            <thead>
-              <tr>
-                <th>Group ID</th>
-                <th>Tanggal</th>
-                <th>Nama Guru</th>
-                <th>Nama Murid</th>
-                <th>Bot</th>
-                <th>Berubah</th>
-                <th>Pengubah</th>
-              </tr>
-            </thead>
-            <tbody id="daily-change-table">
-              <tr>
-                <td colspan="7" class="table-empty">Belum ada data harian.</td>
-              </tr>
-            </tbody>
-          </table>
+          <section class="daily-table-shell">
+            <table class="daily-table">
+              <thead>
+                <tr>
+                  <th>Group ID</th>
+                  <th>Tanggal</th>
+                  <th>Nama Guru</th>
+                  <th>Nama Murid</th>
+                  <th>Bot</th>
+                  <th>Berubah</th>
+                  <th>Pengubah</th>
+                </tr>
+              </thead>
+              <tbody id="daily-change-table">
+                <tr>
+                  <td colspan="7" class="table-empty">Belum ada data harian.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
         </section>
       </section>
 
