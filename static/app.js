@@ -308,7 +308,9 @@ function renderDailyChanges(rows) {
       (row) => `
         <tr>
           <td>
-            <strong>${escapeHtml(row.group_id)}</strong>
+            <button class="daily-group-button" type="button" data-group-id="${escapeHtml(row.group_id)}">
+              ${escapeHtml(row.group_id)}
+            </button>
             <div class="result-context">${escapeHtml(row.group_name || row.wa_chat_id || "-")}</div>
           </td>
           <td>${escapeHtml(row.report_date || "-")}</td>
@@ -321,6 +323,55 @@ function renderDailyChanges(rows) {
       `
     )
     .join("");
+}
+
+function closeChatModal() {
+  $("#chat-modal").classList.add("hidden");
+}
+
+function renderChatModalMessages(messages) {
+  const container = $("#chat-modal-messages");
+  container.classList.toggle("empty-state", !messages.length);
+  if (!messages.length) {
+    container.innerHTML = "Belum ada pesan teks untuk grup ini.";
+    return;
+  }
+  container.innerHTML = messages
+    .map((message) => {
+      const senderName = message.sender?.display_name || message.sender_name || "-";
+      return `
+        <article class="message" data-message-id="${message.id}">
+          <div class="message-meta">
+            <span class="sender-name">${escapeHtml(senderName)}</span>
+            <span class="message-time">${escapeHtml(formatTime(message.wa_timestamp))}</span>
+          </div>
+          <div class="message-body">${escapeHtml(message.body)}</div>
+        </article>
+      `;
+    })
+    .join("");
+  container.scrollTop = container.scrollHeight;
+}
+
+async function openDashboardChat(groupId) {
+  const modal = $("#chat-modal");
+  const messagesContainer = $("#chat-modal-messages");
+  $("#chat-modal-title").textContent = "Percakapan";
+  $("#chat-modal-meta").textContent = groupId;
+  messagesContainer.classList.add("empty-state");
+  messagesContainer.innerHTML = "Memuat percakapan...";
+  modal.classList.remove("hidden");
+
+  try {
+    const data = await api(`/api/chats?group_id=${encodeURIComponent(groupId)}&limit=120`);
+    const group = data.group || {};
+    $("#chat-modal-title").textContent = group.name || "Percakapan";
+    $("#chat-modal-meta").textContent = group.wa_chat_id || groupId;
+    renderChatModalMessages(data.messages || []);
+  } catch (error) {
+    messagesContainer.classList.add("empty-state");
+    messagesContainer.innerHTML = "Chat untuk Group ID ini belum ditemukan.";
+  }
 }
 
 async function runGlobalSearch() {
@@ -418,6 +469,19 @@ $("#dashboard-reset-filter").addEventListener("click", () => {
 });
 $("#dashboard-keyword-filter").addEventListener("keydown", (event) => {
   if (event.key === "Enter") loadDailyChanges();
+});
+$("#daily-change-table").addEventListener("click", (event) => {
+  const button = event.target.closest(".daily-group-button");
+  if (button) openDashboardChat(button.dataset.groupId);
+});
+$("#chat-modal-close").addEventListener("click", closeChatModal);
+$("#chat-modal").addEventListener("click", (event) => {
+  if (event.target.id === "chat-modal") closeChatModal();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !$("#chat-modal").classList.contains("hidden")) {
+    closeChatModal();
+  }
 });
 
 boot().catch(() => show("login"));

@@ -30,6 +30,11 @@
     </main>
 
     <main id="app-view" class="app-shell hidden">
+      <nav class="view-switcher app-tabs" aria-label="Navigasi aplikasi">
+        <button id="chat-tab" class="view-tab active" type="button">Chat</button>
+        <button id="dashboard-tab" class="view-tab" type="button">Dashboard</button>
+      </nav>
+
       <aside class="sidebar">
         <header class="brand">
           <div>
@@ -38,11 +43,6 @@
           </div>
           <button id="logout-button" class="icon-button" title="Keluar" aria-label="Keluar">Q</button>
         </header>
-
-        <nav class="view-switcher" aria-label="Navigasi aplikasi">
-          <button id="chat-tab" class="view-tab active" type="button">Chat</button>
-          <button id="dashboard-tab" class="view-tab" type="button">Dashboard</button>
-        </nav>
 
         <div id="chat-sidebar-tools" class="sidebar-tools">
           <div class="search-box">
@@ -144,6 +144,21 @@
         </section>
       </aside>
     </main>
+
+    <section id="chat-modal" class="chat-modal hidden" role="dialog" aria-modal="true" aria-labelledby="chat-modal-title">
+      <div class="chat-modal-panel">
+        <header class="chat-modal-header">
+          <div>
+            <p id="chat-modal-meta" class="eyebrow">Chat grup</p>
+            <h2 id="chat-modal-title">Percakapan</h2>
+          </div>
+          <button id="chat-modal-close" class="icon-button" type="button" title="Tutup" aria-label="Tutup">X</button>
+        </header>
+        <section id="chat-modal-messages" class="chat-modal-messages empty-state">
+          Memuat percakapan...
+        </section>
+      </div>
+    </section>
 
     <script src="/static/app.js"></script>
   </body>
