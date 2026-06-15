@@ -327,7 +327,13 @@ select:focus {
 
 .message-list {
   overflow: auto;
-  padding: 20px;
+  padding: 18px 22px;
+  background:
+    radial-gradient(circle at 14px 18px, rgba(112, 101, 82, 0.07) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 54px 54px, rgba(112, 101, 82, 0.05) 0 2px, transparent 2.5px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.38) 0 25%, transparent 25% 50%, rgba(255, 255, 255, 0.28) 50% 75%, transparent 75%),
+    #f3eee5;
+  background-size: 72px 72px, 96px 96px, 46px 46px, auto;
 }
 
 .empty-state {
@@ -338,26 +344,76 @@ select:focus {
 }
 
 .message {
-  max-width: 780px;
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  width: fit-content;
+  max-width: min(860px, calc(100% - 28px));
+  margin: 12px 0 0 0;
+  padding: 9px 12px 7px;
+  border: 0;
+  border-radius: 4px 8px 8px 8px;
   background: var(--surface);
+  box-shadow: 0 1px 1px rgba(22, 31, 42, 0.18);
+}
+
+.message.is-continuation {
+  margin-top: 3px;
+  border-top-left-radius: 8px;
 }
 
 .message-meta {
+  margin-bottom: 4px;
+  padding-right: 12px;
+}
+
+.message-content {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 8px;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.sender-name {
+  display: block;
+  max-width: 100%;
+  color: #0563c1;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.sender-name.tone-1 {
+  color: #c84a24;
+}
+
+.sender-name.tone-2 {
+  color: #0f7b55;
+}
+
+.sender-name.tone-3 {
+  color: #7c3aed;
+}
+
+.sender-name.tone-4 {
+  color: #b45309;
+}
+
+.sender-name.tone-5 {
+  color: #be185d;
 }
 
 .message-body {
+  flex: 1 1 auto;
+  min-width: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.5;
+  color: #111827;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.message-time {
+  flex: 0 0 auto;
+  margin-bottom: 1px;
+  color: #6f6f6f;
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .dashboard {
@@ -1215,7 +1271,12 @@ button.rank-row:focus {
   min-height: 320px;
   overflow: auto;
   padding: 16px;
-  background: #fbfcfd;
+  background:
+    radial-gradient(circle at 14px 18px, rgba(112, 101, 82, 0.07) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 54px 54px, rgba(112, 101, 82, 0.05) 0 2px, transparent 2.5px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.38) 0 25%, transparent 25% 50%, rgba(255, 255, 255, 0.28) 50% 75%, transparent 75%),
+    #f3eee5;
+  background-size: 72px 72px, 96px 96px, 46px 46px, auto;
 }
 
 .chat-modal-messages .message {
@@ -1266,6 +1327,14 @@ button.rank-row:focus {
 
   .conversation {
     min-height: 58vh;
+  }
+
+  .message-list {
+    padding: 14px 12px;
+  }
+
+  .message {
+    max-width: 94%;
   }
 
   .filters {

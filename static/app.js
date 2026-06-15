@@ -43,10 +43,19 @@ function formatTime(value) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
+  const clock = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  const today = new Date();
+  const isToday =
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate();
+  if (isToday) return clock;
+  const dateLabel = new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   }).format(date);
+  return `${dateLabel} ${clock}`;
 }
 
 function escapeHtml(value) {
@@ -166,6 +175,44 @@ function renderStatusBadge(value, kind) {
     else if (normalized === "tidak ada") tone = "muted";
   }
   return `<span class="status-chip ${tone}">${escapeHtml(raw)}</span>`;
+}
+
+function getMessageSenderName(message) {
+  return message.sender?.display_name || message.sender_name || "-";
+}
+
+function getMessageSenderKey(message) {
+  return message.sender?.wa_contact_id || message.wa_contact_id || message.sender?.id || message.sender_pk || getMessageSenderName(message);
+}
+
+function getSenderTone(senderKey) {
+  const colors = 6;
+  const value = String(senderKey || "");
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash + value.charCodeAt(index) * (index + 1)) % colors;
+  }
+  return `tone-${hash}`;
+}
+
+function renderMessageBubble(message, previousMessage) {
+  const senderName = getMessageSenderName(message);
+  const senderKey = getMessageSenderKey(message);
+  const previousSenderKey = previousMessage ? getMessageSenderKey(previousMessage) : null;
+  const isContinuation = senderKey && senderKey === previousSenderKey;
+  const senderLabel = isContinuation
+    ? ""
+    : `<div class="message-meta"><span class="sender-name ${getSenderTone(senderKey)}">${escapeHtml(senderName)}</span></div>`;
+
+  return `
+    <article class="message ${isContinuation ? "is-continuation" : ""}" data-message-id="${message.id}">
+      ${senderLabel}
+      <div class="message-content">
+        <div class="message-body">${escapeHtml(message.body)}</div>
+        <span class="message-time">${escapeHtml(formatTime(message.wa_timestamp))}</span>
+      </div>
+    </article>
+  `;
 }
 
 function ensureDashboardCalendarMonth() {
@@ -470,19 +517,7 @@ function renderMessages(messages, { preserveScroll = true } = {}) {
     state.lastRenderedGroupId = state.selectedGroupId;
     return;
   }
-  container.innerHTML = messages
-    .map(
-      (message) => `
-        <article class="message" data-message-id="${message.id}">
-          <div class="message-meta">
-            <span class="sender-name">${escapeHtml(message.sender_name)}</span>
-            <span class="message-time">${escapeHtml(formatTime(message.wa_timestamp))}</span>
-          </div>
-          <div class="message-body">${escapeHtml(message.body)}</div>
-        </article>
-      `
-    )
-    .join("");
+  container.innerHTML = messages.map((message, index) => renderMessageBubble(message, messages[index - 1])).join("");
 
   if (!preserveScroll || isNewGroup || wasNearBottom) {
     container.scrollTop = container.scrollHeight;
@@ -825,20 +860,7 @@ function renderChatModalMessages(messages) {
     container.innerHTML = "Belum ada pesan teks untuk grup ini.";
     return;
   }
-  container.innerHTML = messages
-    .map((message) => {
-      const senderName = message.sender?.display_name || message.sender_name || "-";
-      return `
-        <article class="message" data-message-id="${message.id}">
-          <div class="message-meta">
-            <span class="sender-name">${escapeHtml(senderName)}</span>
-            <span class="message-time">${escapeHtml(formatTime(message.wa_timestamp))}</span>
-          </div>
-          <div class="message-body">${escapeHtml(message.body)}</div>
-        </article>
-      `;
-    })
-    .join("");
+  container.innerHTML = messages.map((message, index) => renderMessageBubble(message, messages[index - 1])).join("");
   container.scrollTop = container.scrollHeight;
 }
 
