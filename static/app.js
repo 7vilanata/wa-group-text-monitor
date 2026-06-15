@@ -6,6 +6,11 @@ const state = {
   contacts: [],
   dailyChanges: [],
   dashboardSection: "summary",
+  dashboardDateRange: {
+    from: "",
+    to: "",
+  },
+  dashboardCalendarMonth: "",
   pollTimer: null,
   lastRenderedGroupId: null,
 };
@@ -68,6 +73,42 @@ function formatShortDate(value) {
   }).format(date);
 }
 
+function parseIsoDate(value) {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function toIsoDate(date) {
+  if (!date || Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date, count) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + count);
+  return next;
+}
+
+function addMonths(date, count) {
+  const next = new Date(date.getFullYear(), date.getMonth() + count, 1);
+  return next;
+}
+
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function endOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
 function compactNumber(value) {
   return new Intl.NumberFormat("id-ID", {
     notation: Number(value || 0) >= 10000 ? "compact" : "standard",
@@ -125,6 +166,145 @@ function renderStatusBadge(value, kind) {
     else if (normalized === "tidak ada") tone = "muted";
   }
   return `<span class="status-chip ${tone}">${escapeHtml(raw)}</span>`;
+}
+
+function ensureDashboardCalendarMonth() {
+  if (state.dashboardCalendarMonth) return;
+  const base = parseIsoDate(state.dashboardDateRange.from) || new Date();
+  state.dashboardCalendarMonth = toIsoDate(startOfMonth(base));
+}
+
+function getDashboardRangeLabel() {
+  const { from, to } = state.dashboardDateRange;
+  if (!from && !to) return "Semua tanggal";
+  if (from && !to) return `${formatShortDate(from)} - pilih akhir`;
+  if (from === to) return formatShortDate(from);
+  return `${formatShortDate(from)} - ${formatShortDate(to)}`;
+}
+
+function updateDashboardRangeLabel() {
+  $("#dashboard-date-range-label").textContent = getDashboardRangeLabel();
+}
+
+function setDashboardRange(from, to = "", { close = false } = {}) {
+  const sortedFrom = from && to && to < from ? to : from;
+  const sortedTo = from && to && to < from ? from : to;
+  state.dashboardDateRange = {
+    from: sortedFrom || "",
+    to: sortedTo || "",
+  };
+  if (state.dashboardDateRange.from) {
+    state.dashboardCalendarMonth = toIsoDate(startOfMonth(parseIsoDate(state.dashboardDateRange.from)));
+  }
+  updateDashboardRangeLabel();
+  renderDashboardRangePicker();
+  if (close) closeDashboardRangePicker();
+}
+
+function clearDashboardRange() {
+  state.dashboardDateRange = { from: "", to: "" };
+  state.dashboardCalendarMonth = toIsoDate(startOfMonth(new Date()));
+  updateDashboardRangeLabel();
+  renderDashboardRangePicker();
+}
+
+function toggleDashboardRangePicker() {
+  const popover = $("#dashboard-date-range-popover");
+  const willOpen = popover.classList.contains("hidden");
+  popover.classList.toggle("hidden", !willOpen);
+  $("#dashboard-date-range-trigger").setAttribute("aria-expanded", String(willOpen));
+  if (willOpen) renderDashboardRangePicker();
+}
+
+function closeDashboardRangePicker() {
+  $("#dashboard-date-range-popover").classList.add("hidden");
+  $("#dashboard-date-range-trigger").setAttribute("aria-expanded", "false");
+}
+
+function renderDashboardRangePicker() {
+  const monthsContainer = $("#range-calendar-months");
+  if (!monthsContainer) return;
+  ensureDashboardCalendarMonth();
+  const firstMonth = parseIsoDate(state.dashboardCalendarMonth) || startOfMonth(new Date());
+  const secondMonth = addMonths(firstMonth, 1);
+  $("#range-calendar-title").textContent = `${formatMonthTitle(firstMonth)} - ${formatMonthTitle(secondMonth)}`;
+  monthsContainer.innerHTML = [firstMonth, secondMonth].map(renderCalendarMonth).join("");
+}
+
+function formatMonthTitle(date) {
+  return new Intl.DateTimeFormat("id-ID", {
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function renderCalendarMonth(monthDate) {
+  const today = toIsoDate(new Date());
+  const { from, to } = state.dashboardDateRange;
+  const monthStart = startOfMonth(monthDate);
+  const monthEnd = endOfMonth(monthDate);
+  const leadingBlankCount = monthStart.getDay();
+  const days = [];
+  for (let index = 0; index < leadingBlankCount; index += 1) {
+    days.push(`<span class="range-day blank" aria-hidden="true"></span>`);
+  }
+  for (let day = 1; day <= monthEnd.getDate(); day += 1) {
+    const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
+    const iso = toIsoDate(date);
+    const isStart = iso === from;
+    const isEnd = iso === to;
+    const isSelected = isStart || isEnd || (from && !to && iso === from);
+    const isInRange = from && to && iso > from && iso < to;
+    const classes = [
+      "range-day",
+      isSelected ? "selected" : "",
+      isStart ? "range-start" : "",
+      isEnd ? "range-end" : "",
+      isInRange ? "in-range" : "",
+      iso === today ? "today" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    days.push(
+      `<button class="${classes}" type="button" data-range-date="${iso}" aria-label="${escapeHtml(iso)}">${day}</button>`
+    );
+  }
+
+  return `
+    <div class="range-month">
+      <strong>${escapeHtml(formatMonthTitle(monthDate))}</strong>
+      <div class="range-weekdays" aria-hidden="true">
+        <span>Min</span><span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span>
+      </div>
+      <div class="range-days">${days.join("")}</div>
+    </div>
+  `;
+}
+
+function chooseDashboardDate(isoDate) {
+  const { from, to } = state.dashboardDateRange;
+  if (!from || to) {
+    setDashboardRange(isoDate);
+    return;
+  }
+  setDashboardRange(from, isoDate, { close: true });
+}
+
+function applyDashboardPreset(value) {
+  const today = new Date();
+  if (value === "today") {
+    const iso = toIsoDate(today);
+    setDashboardRange(iso, iso);
+    return;
+  }
+  if (value === "month") {
+    setDashboardRange(toIsoDate(startOfMonth(today)), toIsoDate(today));
+    return;
+  }
+  const days = Number(value);
+  if (days) {
+    setDashboardRange(toIsoDate(addDays(today, -(days - 1))), toIsoDate(today));
+  }
 }
 
 async function boot() {
@@ -352,7 +532,8 @@ async function loadDailyChanges() {
   const params = new URLSearchParams();
   params.set("limit", "300");
   if ($("#dashboard-group-filter").value) params.set("group_id", $("#dashboard-group-filter").value);
-  if ($("#dashboard-date-filter").value) params.set("date", $("#dashboard-date-filter").value);
+  if (state.dashboardDateRange.from) params.set("from", state.dashboardDateRange.from);
+  if (state.dashboardDateRange.to) params.set("to", state.dashboardDateRange.to);
   if ($("#dashboard-keyword-filter").value.trim()) params.set("q", $("#dashboard-keyword-filter").value.trim());
   const data = await api(`/api/daily-changes?${params.toString()}`);
   state.dailyChanges = data.daily_changes || [];
@@ -773,17 +954,39 @@ $("#dashboard-summary-tab").addEventListener("click", () => switchDashboardSecti
 $("#dashboard-priority-tab").addEventListener("click", () => switchDashboardSection("priority"));
 $("#dashboard-reset-filter").addEventListener("click", () => {
   $("#dashboard-group-filter").value = "";
-  $("#dashboard-date-filter").value = "";
+  clearDashboardRange();
   $("#dashboard-keyword-filter").value = "";
   loadDailyChanges();
 });
 $("#dashboard-keyword-filter").addEventListener("keydown", (event) => {
   if (event.key === "Enter") loadDailyChanges();
 });
+$("#dashboard-date-range-trigger").addEventListener("click", toggleDashboardRangePicker);
+$("#range-prev-month").addEventListener("click", () => {
+  ensureDashboardCalendarMonth();
+  state.dashboardCalendarMonth = toIsoDate(addMonths(parseIsoDate(state.dashboardCalendarMonth), -1));
+  renderDashboardRangePicker();
+});
+$("#range-next-month").addEventListener("click", () => {
+  ensureDashboardCalendarMonth();
+  state.dashboardCalendarMonth = toIsoDate(addMonths(parseIsoDate(state.dashboardCalendarMonth), 1));
+  renderDashboardRangePicker();
+});
+$("#dashboard-date-range-popover").addEventListener("click", (event) => {
+  event.stopPropagation();
+  const presetButton = event.target.closest("[data-range-preset]");
+  if (presetButton) {
+    applyDashboardPreset(presetButton.dataset.rangePreset);
+    return;
+  }
+
+  const dateButton = event.target.closest("[data-range-date]");
+  if (dateButton) chooseDashboardDate(dateButton.dataset.rangeDate);
+});
 $("#dashboard-view").addEventListener("click", (event) => {
   const bar = event.target.closest(".daily-bar");
   if (bar) {
-    $("#dashboard-date-filter").value = bar.dataset.date;
+    setDashboardRange(bar.dataset.date, bar.dataset.date);
     loadDailyChanges();
     return;
   }
@@ -796,9 +999,14 @@ $("#chat-modal").addEventListener("click", (event) => {
   if (event.target.id === "chat-modal") closeChatModal();
 });
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeDashboardRangePicker();
   if (event.key === "Escape" && !$("#chat-modal").classList.contains("hidden")) {
     closeChatModal();
   }
 });
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#dashboard-date-range")) closeDashboardRangePicker();
+});
 
+clearDashboardRange();
 boot().catch(() => show("login"));

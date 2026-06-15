@@ -93,7 +93,25 @@
           <select id="dashboard-group-filter">
             <option value="">Semua grup</option>
           </select>
-          <input id="dashboard-date-filter" type="date" />
+          <div id="dashboard-date-range" class="date-range-picker">
+            <button id="dashboard-date-range-trigger" class="date-range-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
+              <span id="dashboard-date-range-label">Semua tanggal</span>
+            </button>
+            <div id="dashboard-date-range-popover" class="date-range-popover hidden" role="dialog" aria-label="Pilih rentang tanggal">
+              <div class="range-presets" aria-label="Preset rentang tanggal">
+                <button type="button" data-range-preset="today">Hari ini</button>
+                <button type="button" data-range-preset="7">7 hari</button>
+                <button type="button" data-range-preset="30">30 hari</button>
+                <button type="button" data-range-preset="month">Bulan ini</button>
+              </div>
+              <div class="range-calendar-header">
+                <button id="range-prev-month" class="range-nav-button" type="button" aria-label="Bulan sebelumnya">&lt;</button>
+                <span id="range-calendar-title"></span>
+                <button id="range-next-month" class="range-nav-button" type="button" aria-label="Bulan berikutnya">&gt;</button>
+              </div>
+              <div id="range-calendar-months" class="range-calendar-months"></div>
+            </div>
+          </div>
           <input id="dashboard-keyword-filter" type="search" placeholder="Cari guru, murid, bot, pengubah" />
           <button id="dashboard-apply-filter" class="secondary-button">Filter</button>
           <button id="dashboard-reset-filter" class="ghost-button">Reset</button>

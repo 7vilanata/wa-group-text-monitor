@@ -386,11 +386,183 @@ select:focus {
 
 .dashboard-filters {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 150px minmax(220px, 1.4fr) auto auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(280px, 0.9fr) minmax(220px, 1.2fr) auto auto;
   gap: 8px;
   padding: 12px;
   border-bottom: 1px solid var(--line);
   background: #fbfcfd;
+}
+
+.date-range-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.date-range-trigger {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+  font-weight: 750;
+  text-align: left;
+}
+
+.date-range-trigger::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-right: 2px solid #6f7a86;
+  border-bottom: 2px solid #6f7a86;
+  transform: rotate(45deg) translateY(-2px);
+}
+
+.date-range-trigger:hover,
+.date-range-trigger:focus {
+  border-color: #388e5b;
+  box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.12);
+  outline: none;
+}
+
+#dashboard-date-range-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date-range-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 15;
+  width: min(640px, calc(100vw - 24px));
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.range-presets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.range-presets button,
+.range-nav-button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfd;
+  color: #314151;
+  font-weight: 800;
+}
+
+.range-presets button:hover,
+.range-presets button:focus,
+.range-nav-button:hover,
+.range-nav-button:focus {
+  border-color: #9dd2af;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.range-calendar-header {
+  display: grid;
+  grid-template-columns: 38px 1fr 38px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#range-calendar-title {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.range-calendar-months {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.range-month {
+  min-width: 0;
+}
+
+.range-month strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #314151;
+  font-size: 13px;
+  text-align: center;
+}
+
+.range-weekdays,
+.range-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.range-weekdays {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.range-day {
+  min-width: 0;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #314151;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.range-day.blank {
+  pointer-events: none;
+}
+
+button.range-day:hover,
+button.range-day:focus {
+  border-color: #9dd2af;
+  background: var(--accent-soft);
+  outline: none;
+}
+
+.range-day.today {
+  border-color: #adc7ff;
+  color: var(--info);
+}
+
+.range-day.in-range {
+  background: #eaf1ff;
+  color: #1e3a8a;
+}
+
+.range-day.selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
 }
 
 .dashboard-sections {
@@ -1108,6 +1280,29 @@ button.rank-row:focus {
 
   .dashboard-filters {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .date-range-picker {
+    position: static;
+  }
+
+  .date-range-popover {
+    position: fixed;
+    top: 112px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100vh - 136px);
+    overflow: auto;
+  }
+
+  .range-presets,
+  .range-calendar-months {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .range-presets button {
+    min-height: 38px;
   }
 
   .dashboard-summary,
