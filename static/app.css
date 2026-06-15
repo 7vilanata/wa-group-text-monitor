@@ -12,6 +12,7 @@
   --info: #2563eb;
   --info-soft: #eaf1ff;
   --danger: #b42318;
+  --chat-bg: #f0eee8;
   --shadow: 0 12px 30px rgba(20, 31, 43, 0.08);
 }
 
@@ -328,12 +329,7 @@ select:focus {
 .message-list {
   overflow: auto;
   padding: 18px 22px;
-  background:
-    radial-gradient(circle at 14px 18px, rgba(112, 101, 82, 0.07) 0 1.5px, transparent 2px),
-    radial-gradient(circle at 54px 54px, rgba(112, 101, 82, 0.05) 0 2px, transparent 2.5px),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.38) 0 25%, transparent 25% 50%, rgba(255, 255, 255, 0.28) 50% 75%, transparent 75%),
-    #f3eee5;
-  background-size: 72px 72px, 96px 96px, 46px 46px, auto;
+  background: var(--chat-bg);
 }
 
 .empty-state {
@@ -1271,12 +1267,7 @@ button.rank-row:focus {
   min-height: 320px;
   overflow: auto;
   padding: 16px;
-  background:
-    radial-gradient(circle at 14px 18px, rgba(112, 101, 82, 0.07) 0 1.5px, transparent 2px),
-    radial-gradient(circle at 54px 54px, rgba(112, 101, 82, 0.05) 0 2px, transparent 2.5px),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.38) 0 25%, transparent 25% 50%, rgba(255, 255, 255, 0.28) 50% 75%, transparent 75%),
-    #f3eee5;
-  background-size: 72px 72px, 96px 96px, 46px 46px, auto;
+  background: var(--chat-bg);
 }
 
 .chat-modal-messages .message {
