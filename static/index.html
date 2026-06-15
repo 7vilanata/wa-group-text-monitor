@@ -142,13 +142,48 @@
             <table class="daily-table">
               <thead>
                 <tr>
-                  <th>Group ID</th>
-                  <th>Tanggal</th>
-                  <th>Nama Guru</th>
-                  <th>Nama Murid</th>
-                  <th>Bot</th>
-                  <th>Berubah</th>
-                  <th>Pengubah</th>
+                  <th aria-sort="none">
+                    <button class="table-sort-button" type="button" data-daily-sort="group_id">
+                      <span>Group ID</span>
+                      <span class="sort-icons" aria-hidden="true"><span class="sort-triangle up"></span><span class="sort-triangle down"></span></span>
+                    </button>
+                  </th>
+                  <th aria-sort="none">
+                    <button class="table-sort-button" type="button" data-daily-sort="report_date">
+                      <span>Tanggal</span>
+                      <span class="sort-icons" aria-hidden="true"><span class="sort-triangle up"></span><span class="sort-triangle down"></span></span>
+                    </button>
+                  </th>
+                  <th aria-sort="none">
+                    <button class="table-sort-button" type="button" data-daily-sort="teacher_name">
+                      <span>Nama Guru</span>
+                      <span class="sort-icons" aria-hidden="true"><span class="sort-triangle up"></span><span class="sort-triangle down"></span></span>
+                    </button>
+                  </th>
+                  <th aria-sort="none">
+                    <button class="table-sort-button" type="button" data-daily-sort="student_name">
+                      <span>Nama Murid</span>
+                      <span class="sort-icons" aria-hidden="true"><span class="sort-triangle up"></span><span class="sort-triangle down"></span></span>
+                    </button>
+                  </th>
+                  <th aria-sort="none">
+                    <button class="table-sort-button" type="button" data-daily-sort="bot">
+                      <span>Bot</span>
+                      <span class="sort-icons" aria-hidden="true"><span class="sort-triangle up"></span><span class="sort-triangle down"></span></span>
+                    </button>
+                  </th>
+                  <th aria-sort="none">
+                    <button class="table-sort-button" type="button" data-daily-sort="changed">
+                      <span>Berubah</span>
+                      <span class="sort-icons" aria-hidden="true"><span class="sort-triangle up"></span><span class="sort-triangle down"></span></span>
+                    </button>
+                  </th>
+                  <th aria-sort="none">
+                    <button class="table-sort-button" type="button" data-daily-sort="changed_by">
+                      <span>Pengubah</span>
+                      <span class="sort-icons" aria-hidden="true"><span class="sort-triangle up"></span><span class="sort-triangle down"></span></span>
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody id="daily-change-table">

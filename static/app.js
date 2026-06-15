@@ -10,6 +10,10 @@ const state = {
     from: "",
     to: "",
   },
+  dailySort: {
+    key: "report_date",
+    direction: "desc",
+  },
   dashboardCalendarMonth: "",
   pollTimer: null,
   lastRenderedGroupId: null,
@@ -835,13 +839,51 @@ function renderPlainRanking(items, total) {
     .join("");
 }
 
+function getDailySortValue(row, key) {
+  return String(row[key] ?? "").trim();
+}
+
+function sortDailyChanges(rows) {
+  const { key, direction } = state.dailySort;
+  const multiplier = direction === "asc" ? 1 : -1;
+  const collator = new Intl.Collator("id", {
+    numeric: true,
+    sensitivity: "base",
+  });
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((leftItem, rightItem) => {
+      const left = getDailySortValue(leftItem.row, key);
+      const right = getDailySortValue(rightItem.row, key);
+      const result = collator.compare(left, right);
+      if (result) return result * multiplier;
+      return leftItem.index - rightItem.index;
+    })
+    .map((item) => item.row);
+}
+
+function updateDailySortHeaders() {
+  document.querySelectorAll("[data-daily-sort]").forEach((button) => {
+    const isActive = button.dataset.dailySort === state.dailySort.key;
+    button.classList.toggle("active", isActive);
+    button.classList.toggle("asc", isActive && state.dailySort.direction === "asc");
+    button.classList.toggle("desc", isActive && state.dailySort.direction === "desc");
+    button.setAttribute("aria-pressed", String(isActive));
+    const header = button.closest("th");
+    if (header) {
+      header.setAttribute("aria-sort", isActive ? (state.dailySort.direction === "asc" ? "ascending" : "descending") : "none");
+    }
+  });
+}
+
 function renderDailyChanges(rows) {
   const container = $("#daily-change-table");
+  updateDailySortHeaders();
   if (!rows.length) {
     container.innerHTML = `<tr><td colspan="7" class="table-empty">Belum ada data harian untuk filter ini.</td></tr>`;
     return;
   }
-  container.innerHTML = rows
+  container.innerHTML = sortDailyChanges(rows)
     .map((row) => {
       const context = row.group_name || row.wa_chat_id || "";
       return `
@@ -967,6 +1009,17 @@ $("#dashboard-reset-filter").addEventListener("click", () => {
 });
 $("#dashboard-keyword-filter").addEventListener("keydown", (event) => {
   if (event.key === "Enter") loadDailyChanges();
+});
+document.querySelectorAll("[data-daily-sort]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const key = button.dataset.dailySort;
+    if (state.dailySort.key === key) {
+      state.dailySort.direction = state.dailySort.direction === "asc" ? "desc" : "asc";
+    } else {
+      state.dailySort = { key, direction: "asc" };
+    }
+    renderDailyChanges(state.dailyChanges);
+  });
 });
 $("#dashboard-date-range-trigger").addEventListener("click", toggleDashboardRangePicker);
 $("#range-prev-month").addEventListener("click", () => {

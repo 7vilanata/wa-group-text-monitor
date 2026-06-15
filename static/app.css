@@ -1075,6 +1075,60 @@ button.rank-row:focus {
   text-transform: uppercase;
 }
 
+.table-sort-button {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  text-transform: inherit;
+}
+
+.sort-icons {
+  display: inline-grid;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.sort-triangle {
+  width: 0;
+  height: 0;
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+  opacity: 0.28;
+}
+
+.sort-triangle.up {
+  border-bottom: 6px solid #66717d;
+}
+
+.sort-triangle.down {
+  border-top: 6px solid #66717d;
+}
+
+.table-sort-button.asc .sort-triangle.up {
+  border-bottom-color: var(--accent);
+  opacity: 1;
+}
+
+.table-sort-button.desc .sort-triangle.down {
+  border-top-color: var(--accent);
+  opacity: 1;
+}
+
+.table-sort-button:hover,
+.table-sort-button:focus {
+  color: var(--accent);
+}
+
 .daily-table td {
   word-break: break-word;
 }
