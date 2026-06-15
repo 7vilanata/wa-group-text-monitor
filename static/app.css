@@ -1010,9 +1010,9 @@ button.rank-row:focus {
 .daily-table-shell {
   min-height: 320px;
   overflow: auto;
-  margin: 0 12px 12px;
+  margin: 0 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 8px 8px 0 0;
   background: var(--surface);
 }
 
@@ -1136,6 +1136,51 @@ button.rank-row:focus {
 .daily-table .date-cell {
   white-space: nowrap;
   word-break: normal;
+}
+
+.daily-table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 12px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: var(--surface);
+}
+
+.rows-per-page {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #314151;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.rows-per-page select {
+  width: auto;
+  min-width: 86px;
+}
+
+.daily-page-info {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.daily-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.daily-page-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .daily-group-button {
@@ -1480,6 +1525,21 @@ button.rank-row:focus {
 
   .dashboard-stat {
     min-height: 104px;
+  }
+
+  .daily-table-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rows-per-page,
+  .daily-page-info,
+  .daily-page-actions {
+    justify-content: center;
+  }
+
+  .daily-page-actions button {
+    flex: 1;
   }
 
   .chat-modal {

@@ -14,6 +14,8 @@ const state = {
     key: "report_date",
     direction: "desc",
   },
+  dailyPage: 1,
+  dailyPageSize: 20,
   dashboardCalendarMonth: "",
   pollTimer: null,
   lastRenderedGroupId: null,
@@ -584,13 +586,14 @@ function renderDashboardGroupFilter() {
 
 async function loadDailyChanges() {
   const params = new URLSearchParams();
-  params.set("limit", "300");
+  params.set("limit", "500");
   if ($("#dashboard-group-filter").value) params.set("group_id", $("#dashboard-group-filter").value);
   if (state.dashboardDateRange.from) params.set("from", state.dashboardDateRange.from);
   if (state.dashboardDateRange.to) params.set("to", state.dashboardDateRange.to);
   if ($("#dashboard-keyword-filter").value.trim()) params.set("q", $("#dashboard-keyword-filter").value.trim());
   const data = await api(`/api/daily-changes?${params.toString()}`);
   state.dailyChanges = data.daily_changes || [];
+  state.dailyPage = 1;
   const summary = summarizeDailyChanges(state.dailyChanges, data.totals || {}, data.pagination || {});
   renderDailyChangeStats(summary);
   renderDashboardInsights(summary);
@@ -876,14 +879,30 @@ function updateDailySortHeaders() {
   });
 }
 
+function updateDailyPagination(totalRows) {
+  const pageCount = Math.max(1, Math.ceil(totalRows / state.dailyPageSize));
+  state.dailyPage = Math.min(Math.max(state.dailyPage, 1), pageCount);
+  const start = totalRows ? (state.dailyPage - 1) * state.dailyPageSize + 1 : 0;
+  const end = Math.min(state.dailyPage * state.dailyPageSize, totalRows);
+  $("#daily-page-size").value = String(state.dailyPageSize);
+  $("#daily-page-info").textContent = totalRows
+    ? `${start}-${end} dari ${totalRows} data | Halaman ${state.dailyPage}/${pageCount}`
+    : "0 data";
+  $("#daily-prev-page").disabled = state.dailyPage <= 1;
+  $("#daily-next-page").disabled = state.dailyPage >= pageCount;
+}
+
 function renderDailyChanges(rows) {
   const container = $("#daily-change-table");
   updateDailySortHeaders();
+  updateDailyPagination(rows.length);
   if (!rows.length) {
     container.innerHTML = `<tr><td colspan="7" class="table-empty">Belum ada data harian untuk filter ini.</td></tr>`;
     return;
   }
-  container.innerHTML = sortDailyChanges(rows)
+  const startIndex = (state.dailyPage - 1) * state.dailyPageSize;
+  const visibleRows = sortDailyChanges(rows).slice(startIndex, startIndex + state.dailyPageSize);
+  container.innerHTML = visibleRows
     .map((row) => {
       const context = row.group_name || row.wa_chat_id || "";
       return `
@@ -1018,8 +1037,22 @@ document.querySelectorAll("[data-daily-sort]").forEach((button) => {
     } else {
       state.dailySort = { key, direction: "asc" };
     }
+    state.dailyPage = 1;
     renderDailyChanges(state.dailyChanges);
   });
+});
+$("#daily-page-size").addEventListener("change", () => {
+  state.dailyPageSize = Number($("#daily-page-size").value) || 20;
+  state.dailyPage = 1;
+  renderDailyChanges(state.dailyChanges);
+});
+$("#daily-prev-page").addEventListener("click", () => {
+  state.dailyPage -= 1;
+  renderDailyChanges(state.dailyChanges);
+});
+$("#daily-next-page").addEventListener("click", () => {
+  state.dailyPage += 1;
+  renderDailyChanges(state.dailyChanges);
 });
 $("#dashboard-date-range-trigger").addEventListener("click", toggleDashboardRangePicker);
 $("#range-prev-month").addEventListener("click", () => {

@@ -193,6 +193,23 @@
               </tbody>
             </table>
           </section>
+          <div class="daily-table-pagination" aria-label="Pagination tabel harian">
+            <label class="rows-per-page">
+              Tampilkan
+              <select id="daily-page-size">
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="500">500</option>
+              </select>
+              row
+            </label>
+            <span id="daily-page-info" class="daily-page-info">0 data</span>
+            <div class="daily-page-actions">
+              <button id="daily-prev-page" class="ghost-button" type="button">Prev</button>
+              <button id="daily-next-page" class="ghost-button" type="button">Next</button>
+            </div>
+          </div>
         </section>
       </section>
 
