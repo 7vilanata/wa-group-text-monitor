@@ -956,7 +956,6 @@ $("#global-search-button").addEventListener("click", runGlobalSearch);
 $("#global-search").addEventListener("keydown", (event) => {
   if (event.key === "Enter") runGlobalSearch();
 });
-$("#dashboard-refresh-button").addEventListener("click", () => loadDailyChanges());
 $("#dashboard-apply-filter").addEventListener("click", () => loadDailyChanges());
 $("#dashboard-summary-tab").addEventListener("click", () => switchDashboardSection("summary"));
 $("#dashboard-priority-tab").addEventListener("click", () => switchDashboardSection("priority"));
