@@ -53,7 +53,6 @@ function formatTime(value) {
   const dateLabel = new Intl.DateTimeFormat("id-ID", {
     day: "2-digit",
     month: "short",
-    year: "numeric",
   }).format(date);
   return `${dateLabel} ${clock}`;
 }
@@ -397,7 +396,7 @@ async function logout() {
 }
 
 async function refreshAll() {
-  await Promise.all([loadGroups(), loadStats()]);
+  await loadGroups();
   if (state.selectedGroupId) {
     await Promise.all([loadContacts(state.selectedGroupId), loadMessages({ preserveScroll: true })]);
   }
@@ -471,17 +470,34 @@ async function selectGroup(groupId) {
 async function loadContacts(groupId) {
   const data = await api(`/api/contacts?group_id=${encodeURIComponent(groupId)}`);
   state.contacts = data.contacts;
-  const current = $("#sender-filter").value;
-  $("#sender-filter").innerHTML = `
-    <option value="">Semua pengirim</option>
-    ${state.contacts
-      .map(
-        (contact) =>
-          `<option value="${contact.id}">${escapeHtml(contact.display_name)} (${escapeHtml(contact.wa_contact_id)})</option>`
-      )
-      .join("")}
-  `;
-  $("#sender-filter").value = current;
+  renderMembers();
+}
+
+function formatWhatsAppNumber(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "-";
+  const withoutDomain = raw.includes("@") ? raw.split("@")[0] : raw;
+  return withoutDomain || raw;
+}
+
+function renderMembers() {
+  const container = $("#member-list");
+  if (!container) return;
+  container.classList.toggle("empty-state", !state.contacts.length);
+  if (!state.contacts.length) {
+    container.innerHTML = "Belum ada anggota dari pesan yang masuk.";
+    return;
+  }
+  container.innerHTML = state.contacts
+    .map(
+      (contact) => `
+        <div class="member-item">
+          <span class="member-name">${escapeHtml(contact.display_name || "-")}</span>
+          <span class="member-number">${escapeHtml(formatWhatsAppNumber(contact.wa_contact_id))}</span>
+        </div>
+      `
+    )
+    .join("");
 }
 
 function dateToIsoStart(value) {
@@ -497,7 +513,6 @@ async function loadMessages({ preserveScroll = true } = {}) {
   const params = new URLSearchParams();
   params.set("limit", "120");
   if ($("#message-keyword").value.trim()) params.set("q", $("#message-keyword").value.trim());
-  if ($("#sender-filter").value) params.set("sender_id", $("#sender-filter").value);
   if ($("#from-filter").value) params.set("from", dateToIsoStart($("#from-filter").value));
   if ($("#to-filter").value) params.set("to", dateToIsoEnd($("#to-filter").value));
   const data = await api(`/api/groups/${state.selectedGroupId}/messages?${params.toString()}`);
@@ -920,48 +935,19 @@ function renderSearchResults(results) {
   });
 }
 
-async function loadStats() {
-  const data = await api("/api/admin/stats");
-  const totals = data.totals || {};
-  $("#stats").innerHTML = [
-    ["groups", "Grup"],
-    ["messages", "Pesan"],
-    ["stored", "Stored"],
-    ["ignored", "Ignored"],
-    ["duplicate", "Duplikat"],
-    ["failed", "Gagal"],
-  ]
-    .map(
-      ([key, label]) => `
-        <div class="stat">
-          <span class="stat-value">${Number(totals[key] || 0)}</span>
-          <span class="stat-label">${label}</span>
-        </div>
-      `
-    )
-    .join("");
-  $("#recent-events").innerHTML = (data.recent_events || [])
-    .map(
-      (event) => `
-        <div class="event-item">
-          <span class="status-pill ${escapeHtml(event.status)}">${escapeHtml(event.status)}</span>
-          <div class="event-reason">${escapeHtml(event.reason || "ok")} | ${escapeHtml(formatTime(event.received_at))}</div>
-        </div>
-      `
-    )
-    .join("");
-}
-
 $("#login-form").addEventListener("submit", login);
 $("#logout-button").addEventListener("click", logout);
 $("#chat-tab").addEventListener("click", () => switchView("chat"));
 $("#dashboard-tab").addEventListener("click", () => switchView("dashboard"));
 $("#refresh-button").addEventListener("click", () => refreshAll());
 $("#group-search").addEventListener("input", () => loadGroups().catch(() => {}));
-$("#apply-filter").addEventListener("click", () => loadMessages({ preserveScroll: false }));
+$("#message-keyword").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") loadMessages({ preserveScroll: false });
+});
+$("#from-filter").addEventListener("change", () => loadMessages({ preserveScroll: false }));
+$("#to-filter").addEventListener("change", () => loadMessages({ preserveScroll: false }));
 $("#reset-filter").addEventListener("click", () => {
   $("#message-keyword").value = "";
-  $("#sender-filter").value = "";
   $("#from-filter").value = "";
   $("#to-filter").value = "";
   loadMessages({ preserveScroll: false });

@@ -64,17 +64,6 @@
           </div>
         </header>
 
-        <section class="filters">
-          <input id="message-keyword" type="search" placeholder="Cari di grup ini" />
-          <select id="sender-filter">
-            <option value="">Semua pengirim</option>
-          </select>
-          <input id="from-filter" type="date" />
-          <input id="to-filter" type="date" />
-          <button id="apply-filter" class="secondary-button">Filter</button>
-          <button id="reset-filter" class="ghost-button">Reset</button>
-        </section>
-
         <section id="message-list" class="message-list empty-state">
           Pilih grup untuk melihat percakapan teks.
         </section>
@@ -183,6 +172,27 @@
       <aside id="inspector-view" class="inspector">
         <section class="panel">
           <div class="panel-title">
+            <h3>Percakapan</h3>
+          </div>
+          <div class="chat-tools">
+            <input id="message-keyword" type="search" placeholder="Cari di grup ini" />
+            <div class="date-inputs">
+              <input id="from-filter" type="date" aria-label="Tanggal mulai" />
+              <input id="to-filter" type="date" aria-label="Tanggal akhir" />
+            </div>
+            <button id="reset-filter" class="ghost-button">Reset</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h3>Anggota Grup</h3>
+          </div>
+          <div id="member-list" class="member-list empty-state">Pilih grup untuk melihat anggota.</div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
             <h3>Search Global</h3>
           </div>
           <div class="global-search">
@@ -190,14 +200,6 @@
             <button id="global-search-button" class="secondary-button">Cari</button>
           </div>
           <div id="search-results" class="search-results"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-title">
-            <h3>Status Ingestion</h3>
-          </div>
-          <div id="stats" class="stats-grid"></div>
-          <div id="recent-events" class="event-list"></div>
         </section>
       </aside>
     </main>
