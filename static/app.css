@@ -530,7 +530,8 @@ select:focus {
   outline: none;
 }
 
-#dashboard-date-range-label {
+#dashboard-date-range-label,
+#teacher-date-range-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1271,7 +1272,7 @@ button.rank-row:focus {
 .teacher-filters {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 180px 180px auto auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(280px, 0.9fr) auto auto;
   gap: 8px;
   padding: 0;
 }
@@ -1317,7 +1318,7 @@ button.rank-row:focus {
 
 .teacher-list-item {
   width: 100%;
-  min-height: 82px;
+  min-height: 66px;
   display: grid;
   gap: 6px;
   margin-bottom: 8px;
@@ -1366,20 +1367,6 @@ button.rank-row:focus {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
-}
-
-.teacher-meter {
-  height: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #edf1f4;
-}
-
-.teacher-meter span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent), var(--info));
 }
 
 .teacher-chat-messages {
@@ -1595,7 +1582,7 @@ button.rank-row:focus {
   }
 
   .teacher-filters {
-    grid-template-columns: minmax(180px, 1fr) 150px 150px auto auto;
+    grid-template-columns: minmax(180px, 1fr) minmax(240px, 0.9fr) auto auto;
   }
 }
 

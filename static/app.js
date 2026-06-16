@@ -10,6 +10,10 @@ const state = {
     from: "",
     to: "",
   },
+  teacherDateRange: {
+    from: "",
+    to: "",
+  },
   dailySort: {
     key: "report_date",
     direction: "desc",
@@ -17,6 +21,7 @@ const state = {
   dailyPage: 1,
   dailyPageSize: 20,
   dashboardCalendarMonth: "",
+  teacherCalendarMonth: "",
   selectedTeacherKey: "",
   selectedStudentKey: "",
   selectedTeacherGroupId: "",
@@ -293,9 +298,9 @@ function formatMonthTitle(date) {
   }).format(date);
 }
 
-function renderCalendarMonth(monthDate) {
+function renderCalendarMonth(monthDate, range = state.dashboardDateRange, dateAttribute = "data-range-date") {
   const today = toIsoDate(new Date());
-  const { from, to } = state.dashboardDateRange;
+  const { from, to } = range;
   const monthStart = startOfMonth(monthDate);
   const monthEnd = endOfMonth(monthDate);
   const leadingBlankCount = monthStart.getDay();
@@ -321,7 +326,7 @@ function renderCalendarMonth(monthDate) {
       .filter(Boolean)
       .join(" ");
     days.push(
-      `<button class="${classes}" type="button" data-range-date="${iso}" aria-label="${escapeHtml(iso)}">${day}</button>`
+      `<button class="${classes}" type="button" ${dateAttribute}="${iso}" aria-label="${escapeHtml(iso)}">${day}</button>`
     );
   }
 
@@ -359,6 +364,98 @@ function applyDashboardPreset(value) {
   const days = Number(value);
   if (days) {
     setDashboardRange(toIsoDate(addDays(today, -(days - 1))), toIsoDate(today));
+  }
+}
+
+function ensureTeacherCalendarMonth() {
+  if (state.teacherCalendarMonth) return;
+  const base = parseIsoDate(state.teacherDateRange.from) || new Date();
+  state.teacherCalendarMonth = toIsoDate(startOfMonth(base));
+}
+
+function getTeacherRangeLabel() {
+  const { from, to } = state.teacherDateRange;
+  if (!from && !to) return "Semua tanggal";
+  if (from && !to) return `${formatShortDate(from)} - pilih akhir`;
+  if (from === to) return formatShortDate(from);
+  return `${formatShortDate(from)} - ${formatShortDate(to)}`;
+}
+
+function updateTeacherRangeLabel() {
+  $("#teacher-date-range-label").textContent = getTeacherRangeLabel();
+}
+
+function setTeacherRange(from, to = "", { close = false } = {}) {
+  const sortedFrom = from && to && to < from ? to : from;
+  const sortedTo = from && to && to < from ? from : to;
+  state.teacherDateRange = {
+    from: sortedFrom || "",
+    to: sortedTo || "",
+  };
+  if (state.teacherDateRange.from) {
+    state.teacherCalendarMonth = toIsoDate(startOfMonth(parseIsoDate(state.teacherDateRange.from)));
+  }
+  updateTeacherRangeLabel();
+  renderTeacherRangePicker();
+  resetTeacherSelection();
+  if (close) closeTeacherRangePicker();
+}
+
+function clearTeacherRange() {
+  state.teacherDateRange = { from: "", to: "" };
+  state.teacherCalendarMonth = toIsoDate(startOfMonth(new Date()));
+  updateTeacherRangeLabel();
+  renderTeacherRangePicker();
+}
+
+function toggleTeacherRangePicker() {
+  const popover = $("#teacher-date-range-popover");
+  const willOpen = popover.classList.contains("hidden");
+  popover.classList.toggle("hidden", !willOpen);
+  $("#teacher-date-range-trigger").setAttribute("aria-expanded", String(willOpen));
+  if (willOpen) renderTeacherRangePicker();
+}
+
+function closeTeacherRangePicker() {
+  $("#teacher-date-range-popover").classList.add("hidden");
+  $("#teacher-date-range-trigger").setAttribute("aria-expanded", "false");
+}
+
+function renderTeacherRangePicker() {
+  const monthsContainer = $("#teacher-range-calendar-months");
+  if (!monthsContainer) return;
+  ensureTeacherCalendarMonth();
+  const firstMonth = parseIsoDate(state.teacherCalendarMonth) || startOfMonth(new Date());
+  const secondMonth = addMonths(firstMonth, 1);
+  $("#teacher-range-calendar-title").textContent = `${formatMonthTitle(firstMonth)} - ${formatMonthTitle(secondMonth)}`;
+  monthsContainer.innerHTML = [firstMonth, secondMonth]
+    .map((month) => renderCalendarMonth(month, state.teacherDateRange, "data-teacher-range-date"))
+    .join("");
+}
+
+function chooseTeacherDate(isoDate) {
+  const { from, to } = state.teacherDateRange;
+  if (!from || to) {
+    setTeacherRange(isoDate);
+    return;
+  }
+  setTeacherRange(from, isoDate, { close: true });
+}
+
+function applyTeacherPreset(value) {
+  const today = new Date();
+  if (value === "today") {
+    const iso = toIsoDate(today);
+    setTeacherRange(iso, iso);
+    return;
+  }
+  if (value === "month") {
+    setTeacherRange(toIsoDate(startOfMonth(today)), toIsoDate(today));
+    return;
+  }
+  const days = Number(value);
+  if (days) {
+    setTeacherRange(toIsoDate(addDays(today, -(days - 1))), toIsoDate(today));
   }
 }
 
@@ -608,11 +705,10 @@ function appendDashboardFilters(params) {
 
 function appendTeacherFilters(params) {
   const teacherName = $("#teacher-name-filter")?.value.trim();
-  const fromDate = $("#teacher-from-filter")?.value;
-  const toDate = $("#teacher-to-filter")?.value;
+  const { from, to } = state.teacherDateRange;
   if (teacherName) params.set("teacher_name", teacherName);
-  if (fromDate) params.set("from", fromDate);
-  if (toDate) params.set("to", toDate);
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
 }
 
 async function loadDailyChanges() {
@@ -1022,10 +1118,9 @@ function buildStudentSummaries(rows, teacherKey) {
 function getTeacherChatRangeQuery() {
   const params = new URLSearchParams();
   params.set("limit", "120");
-  const fromDate = $("#teacher-from-filter")?.value || "";
-  const toDate = $("#teacher-to-filter")?.value || "";
-  if (fromDate) params.set("from", dateToIsoStart(fromDate));
-  if (toDate) params.set("to", dateToIsoEnd(toDate));
+  const { from, to } = state.teacherDateRange;
+  if (from) params.set("from", dateToIsoStart(from));
+  if (to) params.set("to", dateToIsoEnd(to));
   return params;
 }
 
@@ -1053,20 +1148,16 @@ function renderTeacherDashboard() {
     state.selectedTeacherGroupId = "";
   }
 
-  const maxChanged = Math.max(...teachers.map((teacher) => teacher.changedCount), 1);
   teacherContainer.classList.remove("empty-state");
   teacherContainer.innerHTML = teachers
     .map((teacher) => {
-      const share = Math.max(4, Math.round((teacher.changedCount / maxChanged) * 100));
       return `
         <button class="teacher-list-item ${teacher.key === state.selectedTeacherKey ? "active" : ""}" type="button"
           data-teacher-key="${escapeHtml(teacher.key)}">
           <span class="teacher-item-main">
             <strong>${escapeHtml(truncate(teacher.label, 54))}</strong>
-            <span>${compactNumber(teacher.changedCount)} berubah | ${compactNumber(teacher.totalCount)} catatan</span>
+            <span>${compactNumber(teacher.studentCount.size)} murid | ${compactNumber(teacher.totalCount)} catatan | ${compactNumber(teacher.changedCount)} berubah</span>
           </span>
-          <span class="teacher-item-meta">${compactNumber(teacher.studentCount.size)} murid | ${escapeHtml(formatShortDate(teacher.latestDate))}</span>
-          <span class="teacher-meter" aria-hidden="true"><span style="width: ${share}%"></span></span>
         </button>
       `;
     })
@@ -1079,7 +1170,7 @@ function renderTeacherStudents() {
   const container = $("#teacher-student-list");
   if (!container) return;
   const students = buildStudentSummaries(state.dailyChanges, state.selectedTeacherKey);
-  $("#teacher-student-meta").textContent = state.selectedTeacherKey ? truncate(state.selectedTeacherKey, 42) : "Murid";
+  $("#teacher-student-meta").textContent = "Murid";
 
   if (!students.length) {
     state.selectedStudentKey = "";
@@ -1095,13 +1186,11 @@ function renderTeacherStudents() {
     state.selectedTeacherGroupId = students[0].latestRow?.group_id || "";
   }
 
-  const maxChanged = Math.max(...students.map((student) => student.changedCount), 1);
   container.classList.remove("empty-state");
   container.innerHTML = students
     .map((student) => {
       const row = student.latestRow || {};
       const groupLabel = row.group_name || row.wa_chat_id || row.group_id || "-";
-      const share = Math.max(4, Math.round((student.changedCount / maxChanged) * 100));
       const isActive =
         student.key === state.selectedStudentKey && String(row.group_id || "") === String(state.selectedTeacherGroupId || "");
       return `
@@ -1112,8 +1201,7 @@ function renderTeacherStudents() {
             <strong>${escapeHtml(truncate(student.label, 54))}</strong>
             <span>${compactNumber(student.changedCount)} berubah | ${compactNumber(student.totalCount)} catatan</span>
           </span>
-          <span class="teacher-item-meta">${escapeHtml(truncate(groupLabel, 58))} | ${escapeHtml(formatShortDate(student.latestDate))}</span>
-          <span class="teacher-meter" aria-hidden="true"><span style="width: ${share}%"></span></span>
+          <span class="teacher-item-meta">${escapeHtml(truncate(groupLabel, 58))}</span>
         </button>
       `;
     })
@@ -1133,13 +1221,14 @@ function renderTeacherChatEmpty(message) {
 
 function renderTeacherChatMessages(messages) {
   const container = $("#teacher-chat-messages");
+  const previousScrollTop = container.scrollTop;
   container.classList.toggle("empty-state", !messages.length);
   if (!messages.length) {
     container.innerHTML = "Belum ada pesan teks untuk filter ini.";
     return;
   }
   container.innerHTML = messages.map((message, index) => renderMessageBubble(message, messages[index - 1])).join("");
-  container.scrollTop = container.scrollHeight;
+  container.scrollTop = previousScrollTop;
 }
 
 async function loadTeacherChat() {
@@ -1153,7 +1242,7 @@ async function loadTeacherChat() {
   const params = getTeacherChatRangeQuery();
   params.set("group_id", state.selectedTeacherGroupId);
   const data = await api(`/api/chats?${params.toString()}`);
-  $("#teacher-chat-meta").textContent = `${truncate(state.selectedTeacherKey || "-", 24)} | ${truncate(state.selectedStudentKey || "-", 24)}`;
+  $("#teacher-chat-meta").textContent = "Chat";
   renderTeacherChatMessages(data.messages || []);
 }
 
@@ -1273,18 +1362,9 @@ $("#teacher-name-filter").addEventListener("keydown", (event) => {
     loadDailyChanges();
   }
 });
-$("#teacher-from-filter").addEventListener("change", () => {
-  resetTeacherSelection();
-  loadDailyChanges();
-});
-$("#teacher-to-filter").addEventListener("change", () => {
-  resetTeacherSelection();
-  loadDailyChanges();
-});
 $("#teacher-reset-filter").addEventListener("click", () => {
   $("#teacher-name-filter").value = "";
-  $("#teacher-from-filter").value = "";
-  $("#teacher-to-filter").value = "";
+  clearTeacherRange();
   resetTeacherSelection();
   loadDailyChanges();
 });
@@ -1335,6 +1415,28 @@ $("#dashboard-date-range-popover").addEventListener("click", (event) => {
   const dateButton = event.target.closest("[data-range-date]");
   if (dateButton) chooseDashboardDate(dateButton.dataset.rangeDate);
 });
+$("#teacher-date-range-trigger").addEventListener("click", toggleTeacherRangePicker);
+$("#teacher-range-prev-month").addEventListener("click", () => {
+  ensureTeacherCalendarMonth();
+  state.teacherCalendarMonth = toIsoDate(addMonths(parseIsoDate(state.teacherCalendarMonth), -1));
+  renderTeacherRangePicker();
+});
+$("#teacher-range-next-month").addEventListener("click", () => {
+  ensureTeacherCalendarMonth();
+  state.teacherCalendarMonth = toIsoDate(addMonths(parseIsoDate(state.teacherCalendarMonth), 1));
+  renderTeacherRangePicker();
+});
+$("#teacher-date-range-popover").addEventListener("click", (event) => {
+  event.stopPropagation();
+  const presetButton = event.target.closest("[data-teacher-range-preset]");
+  if (presetButton) {
+    applyTeacherPreset(presetButton.dataset.teacherRangePreset);
+    return;
+  }
+
+  const dateButton = event.target.closest("[data-teacher-range-date]");
+  if (dateButton) chooseTeacherDate(dateButton.dataset.teacherRangeDate);
+});
 $("#dashboard-view").addEventListener("click", (event) => {
   const bar = event.target.closest(".daily-bar");
   if (bar) {
@@ -1369,13 +1471,16 @@ $("#chat-modal").addEventListener("click", (event) => {
 });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeDashboardRangePicker();
+  if (event.key === "Escape") closeTeacherRangePicker();
   if (event.key === "Escape" && !$("#chat-modal").classList.contains("hidden")) {
     closeChatModal();
   }
 });
 document.addEventListener("click", (event) => {
   if (!event.target.closest("#dashboard-date-range")) closeDashboardRangePicker();
+  if (!event.target.closest("#teacher-date-range")) closeTeacherRangePicker();
 });
 
 clearDashboardRange();
+clearTeacherRange();
 boot().catch(() => show("login"));

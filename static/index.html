@@ -218,8 +218,25 @@
       <section id="teacher-view" class="teacher-view teacher-dashboard hidden">
         <section class="teacher-filters">
           <input id="teacher-name-filter" type="search" placeholder="Cari nama guru" />
-          <input id="teacher-from-filter" type="date" aria-label="Tanggal mulai guru" />
-          <input id="teacher-to-filter" type="date" aria-label="Tanggal akhir guru" />
+          <div id="teacher-date-range" class="date-range-picker">
+            <button id="teacher-date-range-trigger" class="date-range-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
+              <span id="teacher-date-range-label">Semua tanggal</span>
+            </button>
+            <div id="teacher-date-range-popover" class="date-range-popover hidden" role="dialog" aria-label="Pilih rentang tanggal guru">
+              <div class="range-presets" aria-label="Preset rentang tanggal guru">
+                <button type="button" data-teacher-range-preset="today">Hari ini</button>
+                <button type="button" data-teacher-range-preset="7">7 hari</button>
+                <button type="button" data-teacher-range-preset="30">30 hari</button>
+                <button type="button" data-teacher-range-preset="month">Bulan ini</button>
+              </div>
+              <div class="range-calendar-header">
+                <button id="teacher-range-prev-month" class="range-nav-button" type="button" aria-label="Bulan sebelumnya">&lt;</button>
+                <span id="teacher-range-calendar-title"></span>
+                <button id="teacher-range-next-month" class="range-nav-button" type="button" aria-label="Bulan berikutnya">&gt;</button>
+              </div>
+              <div id="teacher-range-calendar-months" class="range-calendar-months"></div>
+            </div>
+          </div>
           <button id="teacher-apply-filter" class="secondary-button" type="button">Filter</button>
           <button id="teacher-reset-filter" class="ghost-button" type="button">Reset</button>
         </section>
