@@ -25,6 +25,7 @@ const state = {
   selectedTeacherKey: "",
   selectedStudentKey: "",
   selectedTeacherGroupId: "",
+  teacherChatLoadedKey: "",
   pollTimer: null,
   lastRenderedGroupId: null,
 };
@@ -350,21 +351,32 @@ function chooseDashboardDate(isoDate) {
   setDashboardRange(from, isoDate, { close: true });
 }
 
-function applyDashboardPreset(value) {
+function getPresetRange(value) {
   const today = new Date();
-  if (value === "today") {
-    const iso = toIsoDate(today);
-    setDashboardRange(iso, iso);
-    return;
+  const endDate = addDays(today, -1);
+  if (value === "yesterday") {
+    const iso = toIsoDate(endDate);
+    return { from: iso, to: iso };
   }
   if (value === "month") {
-    setDashboardRange(toIsoDate(startOfMonth(today)), toIsoDate(today));
-    return;
+    return {
+      from: toIsoDate(startOfMonth(endDate)),
+      to: toIsoDate(endDate),
+    };
   }
   const days = Number(value);
   if (days) {
-    setDashboardRange(toIsoDate(addDays(today, -(days - 1))), toIsoDate(today));
+    return {
+      from: toIsoDate(addDays(endDate, -(days - 1))),
+      to: toIsoDate(endDate),
+    };
   }
+  return { from: "", to: "" };
+}
+
+function applyDashboardPreset(value) {
+  const range = getPresetRange(value);
+  if (range.from) setDashboardRange(range.from, range.to);
 }
 
 function ensureTeacherCalendarMonth() {
@@ -443,20 +455,8 @@ function chooseTeacherDate(isoDate) {
 }
 
 function applyTeacherPreset(value) {
-  const today = new Date();
-  if (value === "today") {
-    const iso = toIsoDate(today);
-    setTeacherRange(iso, iso);
-    return;
-  }
-  if (value === "month") {
-    setTeacherRange(toIsoDate(startOfMonth(today)), toIsoDate(today));
-    return;
-  }
-  const days = Number(value);
-  if (days) {
-    setTeacherRange(toIsoDate(addDays(today, -(days - 1))), toIsoDate(today));
-  }
+  const range = getPresetRange(value);
+  if (range.from) setTeacherRange(range.from, range.to);
 }
 
 async function boot() {
@@ -694,6 +694,7 @@ function resetTeacherSelection() {
   state.selectedTeacherKey = "";
   state.selectedStudentKey = "";
   state.selectedTeacherGroupId = "";
+  state.teacherChatLoadedKey = "";
 }
 
 function appendDashboardFilters(params) {
@@ -1124,6 +1125,17 @@ function getTeacherChatRangeQuery() {
   return params;
 }
 
+function getTeacherChatLoadedKey() {
+  const { from, to } = state.teacherDateRange;
+  return [
+    state.selectedTeacherKey || "",
+    state.selectedStudentKey || "",
+    state.selectedTeacherGroupId || "",
+    from || "",
+    to || "",
+  ].join("|");
+}
+
 function renderTeacherDashboard() {
   const teacherContainer = $("#teacher-list");
   const studentContainer = $("#teacher-student-list");
@@ -1190,7 +1202,6 @@ function renderTeacherStudents() {
   container.innerHTML = students
     .map((student) => {
       const row = student.latestRow || {};
-      const groupLabel = row.group_name || row.wa_chat_id || row.group_id || "-";
       const isActive =
         student.key === state.selectedStudentKey && String(row.group_id || "") === String(state.selectedTeacherGroupId || "");
       return `
@@ -1199,17 +1210,14 @@ function renderTeacherStudents() {
           data-group-id="${escapeHtml(row.group_id || "")}">
           <span class="teacher-item-main">
             <strong>${escapeHtml(truncate(student.label, 54))}</strong>
-            <span>${compactNumber(student.changedCount)} berubah | ${compactNumber(student.totalCount)} catatan</span>
+            <span>${compactNumber(student.totalCount)} catatan | ${compactNumber(student.changedCount)} berubah</span>
           </span>
-          <span class="teacher-item-meta">${escapeHtml(truncate(groupLabel, 58))}</span>
         </button>
       `;
     })
     .join("");
 
-  loadTeacherChat().catch(() => {
-    renderTeacherChatEmpty("Chat untuk murid ini belum ditemukan.");
-  });
+  loadTeacherChatIfNeeded();
 }
 
 function renderTeacherChatEmpty(message) {
@@ -1244,6 +1252,15 @@ async function loadTeacherChat() {
   const data = await api(`/api/chats?${params.toString()}`);
   $("#teacher-chat-meta").textContent = "Chat";
   renderTeacherChatMessages(data.messages || []);
+}
+
+function loadTeacherChatIfNeeded() {
+  const loadedKey = getTeacherChatLoadedKey();
+  if (loadedKey === state.teacherChatLoadedKey) return;
+  state.teacherChatLoadedKey = loadedKey;
+  loadTeacherChat().catch(() => {
+    renderTeacherChatEmpty("Chat untuk murid ini belum ditemukan.");
+  });
 }
 
 function closeChatModal() {
@@ -1462,6 +1479,7 @@ $("#teacher-view").addEventListener("click", (event) => {
   if (studentButton) {
     state.selectedStudentKey = studentButton.dataset.studentKey;
     state.selectedTeacherGroupId = studentButton.dataset.groupId;
+    state.teacherChatLoadedKey = "";
     renderTeacherStudents();
   }
 });
