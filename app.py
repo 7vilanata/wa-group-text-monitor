@@ -874,6 +874,10 @@ class AppHandler(SimpleHTTPRequestHandler):
         if query_value(query, "to"):
             clauses.append("daily_group_changes.report_date <= ?")
             params.append(normalize_date(query_value(query, "to")))
+        teacher_name = query_value(query, "teacher_name").strip()
+        if teacher_name:
+            clauses.append("daily_group_changes.teacher_name LIKE ?")
+            params.append(f"%{teacher_name}%")
         keyword = query_value(query, "q").strip()
         if keyword:
             clauses.append(

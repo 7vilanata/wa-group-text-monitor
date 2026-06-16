@@ -199,7 +199,7 @@ select:focus {
 
 .view-switcher {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   padding: 12px;
   border-bottom: 1px solid var(--line);
@@ -469,7 +469,8 @@ select:focus {
   background: #f4f6f8;
 }
 
-.dashboard-mode .dashboard {
+.dashboard-mode .dashboard,
+.dashboard-mode .teacher-view {
   grid-column: 1 / -1;
 }
 
@@ -1250,6 +1251,153 @@ button.rank-row:focus {
   vertical-align: middle !important;
 }
 
+.teacher-view {
+  grid-column: 2 / -1;
+  grid-row: 2;
+  overflow: hidden;
+  background: #f4f6f8;
+}
+
+.teacher-dashboard {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 0.9fr) minmax(260px, 1fr) minmax(360px, 1.35fr);
+  gap: 12px;
+  padding: 12px;
+}
+
+.teacher-filters {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 180px 180px auto auto;
+  gap: 8px;
+  padding: 0;
+}
+
+.teacher-column,
+.teacher-chat-column {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 22px rgba(20, 31, 43, 0.05);
+}
+
+.teacher-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 70px;
+  padding: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.teacher-column-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.teacher-list {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+}
+
+.teacher-list.empty-state {
+  min-height: 220px;
+}
+
+.teacher-list-item {
+  width: 100%;
+  min-height: 82px;
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: inherit;
+  text-align: left;
+}
+
+.teacher-list-item:hover,
+.teacher-list-item:focus,
+.teacher-list-item.active {
+  border-color: #9dd2af;
+  background: var(--accent-soft);
+}
+
+.teacher-list-item.active {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.teacher-item-main,
+.teacher-item-main strong,
+.teacher-item-main span,
+.teacher-item-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teacher-item-main {
+  display: grid;
+  gap: 2px;
+}
+
+.teacher-item-main strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.teacher-item-main span,
+.teacher-item-meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.teacher-meter {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1f4;
+}
+
+.teacher-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--info));
+}
+
+.teacher-chat-messages {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+  background: var(--chat-bg);
+}
+
+.teacher-chat-messages.empty-state {
+  min-height: 320px;
+  background: #fbfcfd;
+}
+
+.teacher-chat-messages .message {
+  max-width: min(100%, 760px);
+}
+
 .inspector {
   display: grid;
   align-content: start;
@@ -1428,7 +1576,8 @@ button.rank-row:focus {
     display: none;
   }
 
-  .dashboard {
+  .dashboard,
+  .teacher-view {
     grid-column: 2;
   }
 
@@ -1439,6 +1588,14 @@ button.rank-row:focus {
 
   .dashboard-breakdowns {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .teacher-dashboard {
+    grid-template-columns: minmax(220px, 0.8fr) minmax(240px, 0.9fr) minmax(320px, 1.2fr);
+  }
+
+  .teacher-filters {
+    grid-template-columns: minmax(180px, 1fr) 150px 150px auto auto;
   }
 }
 
@@ -1477,7 +1634,8 @@ button.rank-row:focus {
     grid-template-columns: 1fr 1fr;
   }
 
-  .dashboard {
+  .dashboard,
+  .teacher-view {
     grid-column: 1;
     grid-row: auto;
     min-height: 58vh;
@@ -1521,6 +1679,23 @@ button.rank-row:focus {
 
   .dashboard-breakdowns {
     grid-template-columns: 1fr;
+  }
+
+  .teacher-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .teacher-column,
+  .teacher-chat-column {
+    min-height: 320px;
+  }
+
+  .teacher-chat-messages {
+    min-height: 260px;
   }
 
   .dashboard-stat {

@@ -17,6 +17,9 @@ const state = {
   dailyPage: 1,
   dailyPageSize: 20,
   dashboardCalendarMonth: "",
+  selectedTeacherKey: "",
+  selectedStudentKey: "",
+  selectedTeacherGroupId: "",
   pollTimer: null,
   lastRenderedGroupId: null,
 };
@@ -406,7 +409,7 @@ async function refreshAll() {
   if (state.selectedGroupId) {
     await Promise.all([loadContacts(state.selectedGroupId), loadMessages({ preserveScroll: true })]);
   }
-  if (state.currentView === "dashboard") {
+  if (state.currentView === "dashboard" || state.currentView === "teacher") {
     await loadDailyChanges();
   }
 }
@@ -551,15 +554,20 @@ function renderMessages(messages, { preserveScroll = true } = {}) {
 function switchView(view) {
   state.currentView = view;
   const isDashboard = view === "dashboard";
-  $("#app-view").classList.toggle("dashboard-mode", isDashboard);
-  $("#chat-tab").classList.toggle("active", !isDashboard);
+  const isTeacher = view === "teacher";
+  const isChat = view === "chat";
+  const isWideView = isDashboard || isTeacher;
+  $("#app-view").classList.toggle("dashboard-mode", isWideView);
+  $("#chat-tab").classList.toggle("active", isChat);
   $("#dashboard-tab").classList.toggle("active", isDashboard);
-  $(".sidebar").classList.toggle("hidden", isDashboard);
-  $("#chat-sidebar-tools").classList.toggle("hidden", isDashboard);
-  $("#chat-view").classList.toggle("hidden", isDashboard);
-  $("#inspector-view").classList.toggle("hidden", isDashboard);
+  $("#teacher-tab").classList.toggle("active", isTeacher);
+  $(".sidebar").classList.toggle("hidden", isWideView);
+  $("#chat-sidebar-tools").classList.toggle("hidden", isWideView);
+  $("#chat-view").classList.toggle("hidden", !isChat);
+  $("#inspector-view").classList.toggle("hidden", isWideView);
   $("#dashboard-view").classList.toggle("hidden", !isDashboard);
-  if (isDashboard) {
+  $("#teacher-view").classList.toggle("hidden", !isTeacher);
+  if (isWideView) {
     loadDailyChanges().catch(() => {});
   }
 }
@@ -567,10 +575,11 @@ function switchView(view) {
 function switchDashboardSection(section) {
   state.dashboardSection = section;
   const isSummary = section === "summary";
+  const isPriority = section === "priority";
   $("#dashboard-summary-tab").classList.toggle("active", isSummary);
-  $("#dashboard-priority-tab").classList.toggle("active", !isSummary);
+  $("#dashboard-priority-tab").classList.toggle("active", isPriority);
   $("#dashboard-summary-section").classList.toggle("hidden", !isSummary);
-  $("#dashboard-priority-section").classList.toggle("hidden", isSummary);
+  $("#dashboard-priority-section").classList.toggle("hidden", !isPriority);
 }
 
 function renderDashboardGroupFilter() {
@@ -584,13 +593,33 @@ function renderDashboardGroupFilter() {
   $("#dashboard-group-filter").value = current;
 }
 
-async function loadDailyChanges() {
-  const params = new URLSearchParams();
-  params.set("limit", "500");
+function resetTeacherSelection() {
+  state.selectedTeacherKey = "";
+  state.selectedStudentKey = "";
+  state.selectedTeacherGroupId = "";
+}
+
+function appendDashboardFilters(params) {
   if ($("#dashboard-group-filter").value) params.set("group_id", $("#dashboard-group-filter").value);
   if (state.dashboardDateRange.from) params.set("from", state.dashboardDateRange.from);
   if (state.dashboardDateRange.to) params.set("to", state.dashboardDateRange.to);
   if ($("#dashboard-keyword-filter").value.trim()) params.set("q", $("#dashboard-keyword-filter").value.trim());
+}
+
+function appendTeacherFilters(params) {
+  const teacherName = $("#teacher-name-filter")?.value.trim();
+  const fromDate = $("#teacher-from-filter")?.value;
+  const toDate = $("#teacher-to-filter")?.value;
+  if (teacherName) params.set("teacher_name", teacherName);
+  if (fromDate) params.set("from", fromDate);
+  if (toDate) params.set("to", toDate);
+}
+
+async function loadDailyChanges() {
+  const params = new URLSearchParams();
+  params.set("limit", "500");
+  if (state.currentView === "teacher") appendTeacherFilters(params);
+  else appendDashboardFilters(params);
   const data = await api(`/api/daily-changes?${params.toString()}`);
   state.dailyChanges = data.daily_changes || [];
   state.dailyPage = 1;
@@ -599,6 +628,7 @@ async function loadDailyChanges() {
   renderDashboardInsights(summary);
   renderDailyChangeChart(summary);
   renderDashboardBreakdowns(summary);
+  renderTeacherDashboard();
   renderDailyChanges(state.dailyChanges);
 }
 
@@ -925,6 +955,208 @@ function renderDailyChanges(rows) {
     .join("");
 }
 
+function getTeacherKey(row) {
+  return String(row.teacher_name || "-").trim() || "-";
+}
+
+function getStudentKey(row) {
+  return String(row.student_name || "-").trim() || "-";
+}
+
+function buildTeacherSummaries(rows) {
+  const summaries = new Map();
+  rows.forEach((row) => {
+    const key = getTeacherKey(row);
+    const current = summaries.get(key) || {
+      key,
+      label: key,
+      totalCount: 0,
+      changedCount: 0,
+      latestDate: "",
+      studentCount: new Set(),
+    };
+    current.totalCount += 1;
+    if (isYes(row.changed)) current.changedCount += 1;
+    if ((row.report_date || "") > current.latestDate) current.latestDate = row.report_date || "";
+    current.studentCount.add(getStudentKey(row));
+    summaries.set(key, current);
+  });
+  return Array.from(summaries.values()).sort(
+    (a, b) =>
+      b.changedCount - a.changedCount ||
+      b.totalCount - a.totalCount ||
+      String(a.label).localeCompare(String(b.label), "id")
+  );
+}
+
+function buildStudentSummaries(rows, teacherKey) {
+  const summaries = new Map();
+  rows
+    .filter((row) => getTeacherKey(row) === teacherKey)
+    .forEach((row) => {
+      const key = getStudentKey(row);
+      const current = summaries.get(key) || {
+        key,
+        label: key,
+        totalCount: 0,
+        changedCount: 0,
+        latestDate: "",
+        latestRow: null,
+      };
+      current.totalCount += 1;
+      if (isYes(row.changed)) current.changedCount += 1;
+      if (!current.latestRow || (row.report_date || "") > (current.latestRow.report_date || "")) {
+        current.latestRow = row;
+      }
+      if ((row.report_date || "") > current.latestDate) current.latestDate = row.report_date || "";
+      summaries.set(key, current);
+    });
+  return Array.from(summaries.values()).sort(
+    (a, b) =>
+      b.changedCount - a.changedCount ||
+      b.totalCount - a.totalCount ||
+      String(a.label).localeCompare(String(b.label), "id")
+  );
+}
+
+function getTeacherChatRangeQuery() {
+  const params = new URLSearchParams();
+  params.set("limit", "120");
+  const fromDate = $("#teacher-from-filter")?.value || "";
+  const toDate = $("#teacher-to-filter")?.value || "";
+  if (fromDate) params.set("from", dateToIsoStart(fromDate));
+  if (toDate) params.set("to", dateToIsoEnd(toDate));
+  return params;
+}
+
+function renderTeacherDashboard() {
+  const teacherContainer = $("#teacher-list");
+  const studentContainer = $("#teacher-student-list");
+  if (!teacherContainer || !studentContainer) return;
+
+  const teachers = buildTeacherSummaries(state.dailyChanges);
+  if (!teachers.length) {
+    state.selectedTeacherKey = "";
+    state.selectedStudentKey = "";
+    state.selectedTeacherGroupId = "";
+    teacherContainer.classList.add("empty-state");
+    teacherContainer.innerHTML = "Belum ada data guru untuk filter ini.";
+    studentContainer.classList.add("empty-state");
+    studentContainer.innerHTML = "Pilih guru untuk melihat murid.";
+    renderTeacherChatEmpty("Pilih murid untuk melihat chat.");
+    return;
+  }
+
+  if (!teachers.some((teacher) => teacher.key === state.selectedTeacherKey)) {
+    state.selectedTeacherKey = teachers[0].key;
+    state.selectedStudentKey = "";
+    state.selectedTeacherGroupId = "";
+  }
+
+  const maxChanged = Math.max(...teachers.map((teacher) => teacher.changedCount), 1);
+  teacherContainer.classList.remove("empty-state");
+  teacherContainer.innerHTML = teachers
+    .map((teacher) => {
+      const share = Math.max(4, Math.round((teacher.changedCount / maxChanged) * 100));
+      return `
+        <button class="teacher-list-item ${teacher.key === state.selectedTeacherKey ? "active" : ""}" type="button"
+          data-teacher-key="${escapeHtml(teacher.key)}">
+          <span class="teacher-item-main">
+            <strong>${escapeHtml(truncate(teacher.label, 54))}</strong>
+            <span>${compactNumber(teacher.changedCount)} berubah | ${compactNumber(teacher.totalCount)} catatan</span>
+          </span>
+          <span class="teacher-item-meta">${compactNumber(teacher.studentCount.size)} murid | ${escapeHtml(formatShortDate(teacher.latestDate))}</span>
+          <span class="teacher-meter" aria-hidden="true"><span style="width: ${share}%"></span></span>
+        </button>
+      `;
+    })
+    .join("");
+
+  renderTeacherStudents();
+}
+
+function renderTeacherStudents() {
+  const container = $("#teacher-student-list");
+  if (!container) return;
+  const students = buildStudentSummaries(state.dailyChanges, state.selectedTeacherKey);
+  $("#teacher-student-meta").textContent = state.selectedTeacherKey ? truncate(state.selectedTeacherKey, 42) : "Murid";
+
+  if (!students.length) {
+    state.selectedStudentKey = "";
+    state.selectedTeacherGroupId = "";
+    container.classList.add("empty-state");
+    container.innerHTML = "Belum ada murid untuk guru ini.";
+    renderTeacherChatEmpty("Pilih murid untuk melihat chat.");
+    return;
+  }
+
+  if (!students.some((student) => student.key === state.selectedStudentKey)) {
+    state.selectedStudentKey = students[0].key;
+    state.selectedTeacherGroupId = students[0].latestRow?.group_id || "";
+  }
+
+  const maxChanged = Math.max(...students.map((student) => student.changedCount), 1);
+  container.classList.remove("empty-state");
+  container.innerHTML = students
+    .map((student) => {
+      const row = student.latestRow || {};
+      const groupLabel = row.group_name || row.wa_chat_id || row.group_id || "-";
+      const share = Math.max(4, Math.round((student.changedCount / maxChanged) * 100));
+      const isActive =
+        student.key === state.selectedStudentKey && String(row.group_id || "") === String(state.selectedTeacherGroupId || "");
+      return `
+        <button class="teacher-list-item ${isActive ? "active" : ""}" type="button"
+          data-student-key="${escapeHtml(student.key)}"
+          data-group-id="${escapeHtml(row.group_id || "")}">
+          <span class="teacher-item-main">
+            <strong>${escapeHtml(truncate(student.label, 54))}</strong>
+            <span>${compactNumber(student.changedCount)} berubah | ${compactNumber(student.totalCount)} catatan</span>
+          </span>
+          <span class="teacher-item-meta">${escapeHtml(truncate(groupLabel, 58))} | ${escapeHtml(formatShortDate(student.latestDate))}</span>
+          <span class="teacher-meter" aria-hidden="true"><span style="width: ${share}%"></span></span>
+        </button>
+      `;
+    })
+    .join("");
+
+  loadTeacherChat().catch(() => {
+    renderTeacherChatEmpty("Chat untuk murid ini belum ditemukan.");
+  });
+}
+
+function renderTeacherChatEmpty(message) {
+  $("#teacher-chat-meta").textContent = "Chat";
+  const container = $("#teacher-chat-messages");
+  container.classList.add("empty-state");
+  container.innerHTML = escapeHtml(message);
+}
+
+function renderTeacherChatMessages(messages) {
+  const container = $("#teacher-chat-messages");
+  container.classList.toggle("empty-state", !messages.length);
+  if (!messages.length) {
+    container.innerHTML = "Belum ada pesan teks untuk filter ini.";
+    return;
+  }
+  container.innerHTML = messages.map((message, index) => renderMessageBubble(message, messages[index - 1])).join("");
+  container.scrollTop = container.scrollHeight;
+}
+
+async function loadTeacherChat() {
+  if (!state.selectedTeacherGroupId) {
+    renderTeacherChatEmpty("Chat untuk murid ini belum ditemukan.");
+    return;
+  }
+  const container = $("#teacher-chat-messages");
+  container.classList.add("empty-state");
+  container.innerHTML = "Memuat percakapan...";
+  const params = getTeacherChatRangeQuery();
+  params.set("group_id", state.selectedTeacherGroupId);
+  const data = await api(`/api/chats?${params.toString()}`);
+  $("#teacher-chat-meta").textContent = `${truncate(state.selectedTeacherKey || "-", 24)} | ${truncate(state.selectedStudentKey || "-", 24)}`;
+  renderTeacherChatMessages(data.messages || []);
+}
+
 function closeChatModal() {
   $("#chat-modal").classList.add("hidden");
 }
@@ -1000,6 +1232,7 @@ $("#login-form").addEventListener("submit", login);
 $("#logout-button").addEventListener("click", logout);
 $("#chat-tab").addEventListener("click", () => switchView("chat"));
 $("#dashboard-tab").addEventListener("click", () => switchView("dashboard"));
+$("#teacher-tab").addEventListener("click", () => switchView("teacher"));
 $("#refresh-button").addEventListener("click", () => refreshAll());
 $("#group-search").addEventListener("input", () => loadGroups().catch(() => {}));
 $("#message-keyword").addEventListener("keydown", (event) => {
@@ -1024,10 +1257,36 @@ $("#dashboard-reset-filter").addEventListener("click", () => {
   $("#dashboard-group-filter").value = "";
   clearDashboardRange();
   $("#dashboard-keyword-filter").value = "";
+  resetTeacherSelection();
   loadDailyChanges();
 });
 $("#dashboard-keyword-filter").addEventListener("keydown", (event) => {
   if (event.key === "Enter") loadDailyChanges();
+});
+$("#teacher-apply-filter").addEventListener("click", () => {
+  resetTeacherSelection();
+  loadDailyChanges();
+});
+$("#teacher-name-filter").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    resetTeacherSelection();
+    loadDailyChanges();
+  }
+});
+$("#teacher-from-filter").addEventListener("change", () => {
+  resetTeacherSelection();
+  loadDailyChanges();
+});
+$("#teacher-to-filter").addEventListener("change", () => {
+  resetTeacherSelection();
+  loadDailyChanges();
+});
+$("#teacher-reset-filter").addEventListener("click", () => {
+  $("#teacher-name-filter").value = "";
+  $("#teacher-from-filter").value = "";
+  $("#teacher-to-filter").value = "";
+  resetTeacherSelection();
+  loadDailyChanges();
 });
 document.querySelectorAll("[data-daily-sort]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -1086,6 +1345,23 @@ $("#dashboard-view").addEventListener("click", (event) => {
 
   const chatButton = event.target.closest(".dashboard-chat-link, .daily-group-button");
   if (chatButton) openDashboardChat(chatButton.dataset.groupId);
+});
+$("#teacher-view").addEventListener("click", (event) => {
+  const teacherButton = event.target.closest("[data-teacher-key]");
+  if (teacherButton) {
+    state.selectedTeacherKey = teacherButton.dataset.teacherKey;
+    state.selectedStudentKey = "";
+    state.selectedTeacherGroupId = "";
+    renderTeacherDashboard();
+    return;
+  }
+
+  const studentButton = event.target.closest("[data-student-key]");
+  if (studentButton) {
+    state.selectedStudentKey = studentButton.dataset.studentKey;
+    state.selectedTeacherGroupId = studentButton.dataset.groupId;
+    renderTeacherStudents();
+  }
 });
 $("#chat-modal-close").addEventListener("click", closeChatModal);
 $("#chat-modal").addEventListener("click", (event) => {

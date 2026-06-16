@@ -33,6 +33,7 @@
       <nav class="view-switcher app-tabs" aria-label="Navigasi aplikasi">
         <button id="chat-tab" class="view-tab active" type="button">Chat</button>
         <button id="dashboard-tab" class="view-tab" type="button">Dashboard</button>
+        <button id="teacher-tab" class="view-tab" type="button">Guru</button>
       </nav>
 
       <aside class="sidebar">
@@ -210,6 +211,44 @@
               <button id="daily-next-page" class="ghost-button" type="button">Next</button>
             </div>
           </div>
+        </section>
+
+      </section>
+
+      <section id="teacher-view" class="teacher-view teacher-dashboard hidden">
+        <section class="teacher-filters">
+          <input id="teacher-name-filter" type="search" placeholder="Cari nama guru" />
+          <input id="teacher-from-filter" type="date" aria-label="Tanggal mulai guru" />
+          <input id="teacher-to-filter" type="date" aria-label="Tanggal akhir guru" />
+          <button id="teacher-apply-filter" class="secondary-button" type="button">Filter</button>
+          <button id="teacher-reset-filter" class="ghost-button" type="button">Reset</button>
+        </section>
+
+        <section class="teacher-column">
+          <div class="teacher-column-header">
+            <div>
+              <p class="eyebrow">Guru</p>
+            </div>
+          </div>
+          <div id="teacher-list" class="teacher-list empty-state">Belum ada data guru.</div>
+        </section>
+
+        <section class="teacher-column">
+          <div class="teacher-column-header">
+            <div>
+              <p id="teacher-student-meta" class="eyebrow">Murid</p>
+            </div>
+          </div>
+          <div id="teacher-student-list" class="teacher-list empty-state">Pilih guru untuk melihat murid.</div>
+        </section>
+
+        <section class="teacher-chat-column">
+          <div class="teacher-column-header">
+            <div>
+              <p id="teacher-chat-meta" class="eyebrow">Chat</p>
+            </div>
+          </div>
+          <div id="teacher-chat-messages" class="teacher-chat-messages empty-state">Pilih murid untuk melihat chat.</div>
         </section>
       </section>
 
