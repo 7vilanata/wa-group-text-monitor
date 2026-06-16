@@ -1119,20 +1119,14 @@ function buildStudentSummaries(rows, teacherKey) {
 function getTeacherChatRangeQuery() {
   const params = new URLSearchParams();
   params.set("limit", "120");
-  const { from, to } = state.teacherDateRange;
-  if (from) params.set("from", dateToIsoStart(from));
-  if (to) params.set("to", dateToIsoEnd(to));
   return params;
 }
 
 function getTeacherChatLoadedKey() {
-  const { from, to } = state.teacherDateRange;
   return [
     state.selectedTeacherKey || "",
     state.selectedStudentKey || "",
     state.selectedTeacherGroupId || "",
-    from || "",
-    to || "",
   ].join("|");
 }
 
