@@ -966,21 +966,6 @@ button.rank-row:focus {
   font-size: 12px;
 }
 
-.rank-meter {
-  grid-column: 2;
-  height: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #edf1f4;
-}
-
-.rank-meter span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent), var(--info));
-}
-
 .breakdown-empty {
   min-height: 140px;
 }

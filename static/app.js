@@ -915,24 +915,23 @@ function renderDashboardBreakdowns(summary) {
   container.innerHTML = `
     <div class="breakdown-column">
       <h4>Grup sering berubah</h4>
-      ${renderGroupRanking(summary.changedGroups.slice(0, 5), Math.max(summary.changedCount, 1), "Ya")}
+      ${renderGroupRanking(summary.changedGroups.slice(0, 5), "Ya")}
     </div>
     <div class="breakdown-column">
       <h4>Pengubah</h4>
-      ${renderPlainRanking(summary.changers.slice(0, 5), summary.rows.length)}
+      ${renderPlainRanking(summary.changers.slice(0, 5))}
     </div>
     <div class="breakdown-column">
       <h4>Guru sering berubah</h4>
-      ${renderPlainRanking(summary.changedTeachers.slice(0, 5), Math.max(summary.changedCount, 1))}
+      ${renderPlainRanking(summary.changedTeachers.slice(0, 5))}
     </div>
   `;
 }
 
-function renderGroupRanking(items, total, suffix = "catatan") {
+function renderGroupRanking(items, suffix = "catatan") {
   if (!items.length) return `<div class="result-context">Belum ada grup dengan Berubah = Ya.</div>`;
   return items
     .map((item, index) => {
-      const share = Math.max(4, Math.round((item.count / Math.max(total, 1)) * 100));
       return `
         <button class="rank-row dashboard-chat-link" type="button" data-group-id="${escapeHtml(item.key)}">
           <span class="rank-index">${index + 1}</span>
@@ -940,18 +939,16 @@ function renderGroupRanking(items, total, suffix = "catatan") {
             <strong>${escapeHtml(truncate(item.label, 52))}</strong>
             <span>${compactNumber(item.count)} ${escapeHtml(suffix)} | terakhir ${escapeHtml(formatShortDate(item.latestDate))}</span>
           </span>
-          <span class="rank-meter" aria-hidden="true"><span style="width: ${share}%"></span></span>
         </button>
       `;
     })
     .join("");
 }
 
-function renderPlainRanking(items, total) {
+function renderPlainRanking(items) {
   if (!items.length) return `<div class="result-context">Belum ada data.</div>`;
   return items
     .map((item, index) => {
-      const share = Math.max(3, Math.round((item.count / Math.max(total, 1)) * 100));
       return `
         <div class="rank-row">
           <span class="rank-index">${index + 1}</span>
@@ -959,7 +956,6 @@ function renderPlainRanking(items, total) {
             <strong>${escapeHtml(truncate(item.label, 52))}</strong>
             <span>${compactNumber(item.count)} catatan</span>
           </span>
-          <span class="rank-meter" aria-hidden="true"><span style="width: ${share}%"></span></span>
         </div>
       `;
     })
