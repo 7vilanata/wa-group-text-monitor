@@ -2,10 +2,9 @@ const state = {
   user: null,
   groups: [],
   selectedGroupId: null,
-  currentView: "chat",
+  currentView: "dashboard",
   contacts: [],
   dailyChanges: [],
-  dashboardSection: "summary",
   dashboardDateRange: {
     from: "",
     to: "",
@@ -464,6 +463,7 @@ async function boot() {
   if (session.user) {
     state.user = session.user;
     show("app");
+    switchView(state.currentView, { load: false });
     await refreshAll();
     startPolling();
   } else {
@@ -484,6 +484,7 @@ async function login(event) {
     });
     state.user = data.user;
     show("app");
+    switchView(state.currentView, { load: false });
     await refreshAll();
     startPolling();
   } catch (error) {
@@ -496,7 +497,8 @@ async function logout() {
   await api("/api/auth/logout", { method: "POST" });
   state.user = null;
   state.selectedGroupId = null;
-  state.currentView = "chat";
+  state.currentView = "dashboard";
+  switchView(state.currentView, { load: false });
   stopPolling();
   show("login");
 }
@@ -506,7 +508,7 @@ async function refreshAll() {
   if (state.selectedGroupId) {
     await Promise.all([loadContacts(state.selectedGroupId), loadMessages({ preserveScroll: true })]);
   }
-  if (state.currentView === "dashboard" || state.currentView === "teacher") {
+  if (state.currentView === "dashboard" || state.currentView === "priority" || state.currentView === "teacher") {
     await loadDailyChanges();
   }
 }
@@ -648,35 +650,30 @@ function renderMessages(messages, { preserveScroll = true } = {}) {
   state.lastRenderedGroupId = state.selectedGroupId;
 }
 
-function switchView(view) {
+function switchView(view, { load = true } = {}) {
   state.currentView = view;
   const isDashboard = view === "dashboard";
+  const isPriority = view === "priority";
   const isTeacher = view === "teacher";
   const isChat = view === "chat";
-  const isWideView = isDashboard || isTeacher;
+  const isDailyView = isDashboard || isPriority;
+  const isWideView = isDailyView || isTeacher;
   $("#app-view").classList.toggle("dashboard-mode", isWideView);
   $("#chat-tab").classList.toggle("active", isChat);
   $("#dashboard-tab").classList.toggle("active", isDashboard);
+  $("#priority-tab").classList.toggle("active", isPriority);
   $("#teacher-tab").classList.toggle("active", isTeacher);
   $(".sidebar").classList.toggle("hidden", isWideView);
   $("#chat-sidebar-tools").classList.toggle("hidden", isWideView);
   $("#chat-view").classList.toggle("hidden", !isChat);
   $("#inspector-view").classList.toggle("hidden", isWideView);
-  $("#dashboard-view").classList.toggle("hidden", !isDashboard);
+  $("#dashboard-view").classList.toggle("hidden", !isDailyView);
+  $("#dashboard-summary-section").classList.toggle("hidden", !isDashboard);
+  $("#dashboard-priority-section").classList.toggle("hidden", !isPriority);
   $("#teacher-view").classList.toggle("hidden", !isTeacher);
-  if (isWideView) {
+  if (isWideView && load) {
     loadDailyChanges().catch(() => {});
   }
-}
-
-function switchDashboardSection(section) {
-  state.dashboardSection = section;
-  const isSummary = section === "summary";
-  const isPriority = section === "priority";
-  $("#dashboard-summary-tab").classList.toggle("active", isSummary);
-  $("#dashboard-priority-tab").classList.toggle("active", isPriority);
-  $("#dashboard-summary-section").classList.toggle("hidden", !isSummary);
-  $("#dashboard-priority-section").classList.toggle("hidden", !isPriority);
 }
 
 function renderDashboardGroupFilter() {
@@ -1330,9 +1327,10 @@ function renderSearchResults(results) {
 
 $("#login-form").addEventListener("submit", login);
 $("#logout-button").addEventListener("click", logout);
-$("#chat-tab").addEventListener("click", () => switchView("chat"));
 $("#dashboard-tab").addEventListener("click", () => switchView("dashboard"));
+$("#priority-tab").addEventListener("click", () => switchView("priority"));
 $("#teacher-tab").addEventListener("click", () => switchView("teacher"));
+$("#chat-tab").addEventListener("click", () => switchView("chat"));
 $("#refresh-button").addEventListener("click", () => refreshAll());
 $("#group-search").addEventListener("input", () => loadGroups().catch(() => {}));
 $("#message-keyword").addEventListener("keydown", (event) => {
@@ -1351,8 +1349,6 @@ $("#global-search").addEventListener("keydown", (event) => {
   if (event.key === "Enter") runGlobalSearch();
 });
 $("#dashboard-apply-filter").addEventListener("click", () => loadDailyChanges());
-$("#dashboard-summary-tab").addEventListener("click", () => switchDashboardSection("summary"));
-$("#dashboard-priority-tab").addEventListener("click", () => switchDashboardSection("priority"));
 $("#dashboard-reset-filter").addEventListener("click", () => {
   $("#dashboard-group-filter").value = "";
   clearDashboardRange();

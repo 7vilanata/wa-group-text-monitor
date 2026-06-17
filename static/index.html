@@ -29,14 +29,15 @@
       </section>
     </main>
 
-    <main id="app-view" class="app-shell hidden">
+    <main id="app-view" class="app-shell dashboard-mode hidden">
       <nav class="view-switcher app-tabs" aria-label="Navigasi aplikasi">
-        <button id="chat-tab" class="view-tab active" type="button">Chat</button>
-        <button id="dashboard-tab" class="view-tab" type="button">Dashboard</button>
+        <button id="dashboard-tab" class="view-tab active" type="button">Dashboard</button>
+        <button id="priority-tab" class="view-tab" type="button">Prioritas</button>
         <button id="teacher-tab" class="view-tab" type="button">Guru</button>
+        <button id="chat-tab" class="view-tab" type="button">Chat</button>
       </nav>
 
-      <aside class="sidebar">
+      <aside class="sidebar hidden">
         <header class="brand">
           <div>
             <p class="eyebrow">Text-only</p>
@@ -45,7 +46,7 @@
           <button id="logout-button" class="icon-button" title="Keluar" aria-label="Keluar">Q</button>
         </header>
 
-        <div id="chat-sidebar-tools" class="sidebar-tools">
+        <div id="chat-sidebar-tools" class="sidebar-tools hidden">
           <div class="search-box">
             <input id="group-search" type="search" placeholder="Cari grup" />
           </div>
@@ -54,7 +55,7 @@
         </div>
       </aside>
 
-      <section id="chat-view" class="conversation">
+      <section id="chat-view" class="conversation hidden">
         <header class="conversation-header">
           <div>
             <p id="selected-group-meta" class="eyebrow">Belum ada grup dipilih</p>
@@ -70,7 +71,7 @@
         </section>
       </section>
 
-      <section id="dashboard-view" class="dashboard hidden">
+      <section id="dashboard-view" class="dashboard">
         <section class="dashboard-filters">
           <select id="dashboard-group-filter">
             <option value="">Semua grup</option>
@@ -97,11 +98,6 @@
           <input id="dashboard-keyword-filter" type="search" placeholder="Cari guru, murid, bot, pengubah" />
           <button id="dashboard-apply-filter" class="secondary-button">Filter</button>
           <button id="dashboard-reset-filter" class="ghost-button">Reset</button>
-        </section>
-
-        <section class="dashboard-sections" aria-label="Bagian dashboard">
-          <button id="dashboard-summary-tab" class="dashboard-section-tab active" type="button">Ringkasan</button>
-          <button id="dashboard-priority-tab" class="dashboard-section-tab" type="button">Prioritas</button>
         </section>
 
         <section id="dashboard-summary-section" class="dashboard-section">
@@ -269,7 +265,7 @@
         </section>
       </section>
 
-      <aside id="inspector-view" class="inspector">
+      <aside id="inspector-view" class="inspector hidden">
         <section class="panel">
           <div class="panel-title">
             <h3>Percakapan</h3>
