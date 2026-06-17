@@ -620,6 +620,18 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         self.send_error(404)
 
+    def do_HEAD(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        if path == "/" or path == "/login":
+            self.serve_static("index.html", head_only=True)
+            return
+        if path.startswith("/static/"):
+            self.serve_static(path.replace("/static/", "", 1), head_only=True)
+            return
+        self.send_error(404)
+
     def do_POST(self):
         parsed = urlparse(self.path)
         if parsed.path.startswith("/api/"):
@@ -627,7 +639,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         self.send_error(404)
 
-    def serve_static(self, relative_path):
+    def serve_static(self, relative_path, head_only=False):
         safe_path = Path(unquote(relative_path)).name
         file_path = STATIC_DIR / safe_path
         if not file_path.exists():
@@ -644,8 +656,11 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
         self.end_headers()
-        self.wfile.write(body)
+        if not head_only:
+            self.wfile.write(body)
 
     def handle_api_get(self, path, query):
         if path == "/api/me":

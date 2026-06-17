@@ -31,6 +31,12 @@ const state = {
 
 const $ = (selector) => document.querySelector(selector);
 
+function on(selector, eventName, handler) {
+  const element = $(selector);
+  if (!element) return;
+  element.addEventListener(eventName, handler);
+}
+
 function show(view) {
   $("#login-view").classList.toggle("hidden", view !== "login");
   $("#app-view").classList.toggle("hidden", view !== "app");
@@ -1321,51 +1327,51 @@ function renderSearchResults(results) {
   });
 }
 
-$("#login-form").addEventListener("submit", login);
-$("#logout-button").addEventListener("click", logout);
-$("#dashboard-tab").addEventListener("click", () => switchView("dashboard"));
-$("#priority-tab").addEventListener("click", () => switchView("priority"));
-$("#teacher-tab").addEventListener("click", () => switchView("teacher"));
-$("#chat-tab").addEventListener("click", () => switchView("chat"));
-$("#refresh-button").addEventListener("click", () => refreshAll());
-$("#group-search").addEventListener("input", () => loadGroups().catch(() => {}));
-$("#message-keyword").addEventListener("keydown", (event) => {
+on("#login-form", "submit", login);
+on("#logout-button", "click", logout);
+on("#dashboard-tab", "click", () => switchView("dashboard"));
+on("#priority-tab", "click", () => switchView("priority"));
+on("#teacher-tab", "click", () => switchView("teacher"));
+on("#chat-tab", "click", () => switchView("chat"));
+on("#refresh-button", "click", () => refreshAll());
+on("#group-search", "input", () => loadGroups().catch(() => {}));
+on("#message-keyword", "keydown", (event) => {
   if (event.key === "Enter") loadMessages({ preserveScroll: false });
 });
-$("#from-filter").addEventListener("change", () => loadMessages({ preserveScroll: false }));
-$("#to-filter").addEventListener("change", () => loadMessages({ preserveScroll: false }));
-$("#reset-filter").addEventListener("click", () => {
+on("#from-filter", "change", () => loadMessages({ preserveScroll: false }));
+on("#to-filter", "change", () => loadMessages({ preserveScroll: false }));
+on("#reset-filter", "click", () => {
   $("#message-keyword").value = "";
   $("#from-filter").value = "";
   $("#to-filter").value = "";
   loadMessages({ preserveScroll: false });
 });
-$("#global-search-button").addEventListener("click", runGlobalSearch);
-$("#global-search").addEventListener("keydown", (event) => {
+on("#global-search-button", "click", runGlobalSearch);
+on("#global-search", "keydown", (event) => {
   if (event.key === "Enter") runGlobalSearch();
 });
-$("#dashboard-apply-filter").addEventListener("click", () => loadDailyChanges());
-$("#dashboard-reset-filter").addEventListener("click", () => {
+on("#dashboard-apply-filter", "click", () => loadDailyChanges());
+on("#dashboard-reset-filter", "click", () => {
   $("#dashboard-group-filter").value = "";
   clearDashboardRange();
   $("#dashboard-keyword-filter").value = "";
   resetTeacherSelection();
   loadDailyChanges();
 });
-$("#dashboard-keyword-filter").addEventListener("keydown", (event) => {
+on("#dashboard-keyword-filter", "keydown", (event) => {
   if (event.key === "Enter") loadDailyChanges();
 });
-$("#teacher-apply-filter").addEventListener("click", () => {
+on("#teacher-apply-filter", "click", () => {
   resetTeacherSelection();
   loadDailyChanges();
 });
-$("#teacher-name-filter").addEventListener("keydown", (event) => {
+on("#teacher-name-filter", "keydown", (event) => {
   if (event.key === "Enter") {
     resetTeacherSelection();
     loadDailyChanges();
   }
 });
-$("#teacher-reset-filter").addEventListener("click", () => {
+on("#teacher-reset-filter", "click", () => {
   $("#teacher-name-filter").value = "";
   clearTeacherRange();
   resetTeacherSelection();
@@ -1383,31 +1389,31 @@ document.querySelectorAll("[data-daily-sort]").forEach((button) => {
     renderDailyChanges(state.dailyChanges);
   });
 });
-$("#daily-page-size").addEventListener("change", () => {
+on("#daily-page-size", "change", () => {
   state.dailyPageSize = Number($("#daily-page-size").value) || 20;
   state.dailyPage = 1;
   renderDailyChanges(state.dailyChanges);
 });
-$("#daily-prev-page").addEventListener("click", () => {
+on("#daily-prev-page", "click", () => {
   state.dailyPage -= 1;
   renderDailyChanges(state.dailyChanges);
 });
-$("#daily-next-page").addEventListener("click", () => {
+on("#daily-next-page", "click", () => {
   state.dailyPage += 1;
   renderDailyChanges(state.dailyChanges);
 });
-$("#dashboard-date-range-trigger").addEventListener("click", toggleDashboardRangePicker);
-$("#range-prev-month").addEventListener("click", () => {
+on("#dashboard-date-range-trigger", "click", toggleDashboardRangePicker);
+on("#range-prev-month", "click", () => {
   ensureDashboardCalendarMonth();
   state.dashboardCalendarMonth = toIsoDate(addMonths(parseIsoDate(state.dashboardCalendarMonth), -1));
   renderDashboardRangePicker();
 });
-$("#range-next-month").addEventListener("click", () => {
+on("#range-next-month", "click", () => {
   ensureDashboardCalendarMonth();
   state.dashboardCalendarMonth = toIsoDate(addMonths(parseIsoDate(state.dashboardCalendarMonth), 1));
   renderDashboardRangePicker();
 });
-$("#dashboard-date-range-popover").addEventListener("click", (event) => {
+on("#dashboard-date-range-popover", "click", (event) => {
   event.stopPropagation();
   const presetButton = event.target.closest("[data-range-preset]");
   if (presetButton) {
@@ -1418,18 +1424,18 @@ $("#dashboard-date-range-popover").addEventListener("click", (event) => {
   const dateButton = event.target.closest("[data-range-date]");
   if (dateButton) chooseDashboardDate(dateButton.dataset.rangeDate);
 });
-$("#teacher-date-range-trigger").addEventListener("click", toggleTeacherRangePicker);
-$("#teacher-range-prev-month").addEventListener("click", () => {
+on("#teacher-date-range-trigger", "click", toggleTeacherRangePicker);
+on("#teacher-range-prev-month", "click", () => {
   ensureTeacherCalendarMonth();
   state.teacherCalendarMonth = toIsoDate(addMonths(parseIsoDate(state.teacherCalendarMonth), -1));
   renderTeacherRangePicker();
 });
-$("#teacher-range-next-month").addEventListener("click", () => {
+on("#teacher-range-next-month", "click", () => {
   ensureTeacherCalendarMonth();
   state.teacherCalendarMonth = toIsoDate(addMonths(parseIsoDate(state.teacherCalendarMonth), 1));
   renderTeacherRangePicker();
 });
-$("#teacher-date-range-popover").addEventListener("click", (event) => {
+on("#teacher-date-range-popover", "click", (event) => {
   event.stopPropagation();
   const presetButton = event.target.closest("[data-teacher-range-preset]");
   if (presetButton) {
@@ -1440,7 +1446,7 @@ $("#teacher-date-range-popover").addEventListener("click", (event) => {
   const dateButton = event.target.closest("[data-teacher-range-date]");
   if (dateButton) chooseTeacherDate(dateButton.dataset.teacherRangeDate);
 });
-$("#dashboard-view").addEventListener("click", (event) => {
+on("#dashboard-view", "click", (event) => {
   const bar = event.target.closest(".daily-bar");
   if (bar) {
     setDashboardRange(bar.dataset.date, bar.dataset.date);
@@ -1451,7 +1457,7 @@ $("#dashboard-view").addEventListener("click", (event) => {
   const chatButton = event.target.closest(".dashboard-chat-link, .daily-group-button");
   if (chatButton) openDashboardChat(chatButton.dataset.groupId);
 });
-$("#teacher-view").addEventListener("click", (event) => {
+on("#teacher-view", "click", (event) => {
   const teacherButton = event.target.closest("[data-teacher-key]");
   if (teacherButton) {
     state.selectedTeacherKey = teacherButton.dataset.teacherKey;
@@ -1469,8 +1475,8 @@ $("#teacher-view").addEventListener("click", (event) => {
     renderTeacherStudents();
   }
 });
-$("#chat-modal-close").addEventListener("click", closeChatModal);
-$("#chat-modal").addEventListener("click", (event) => {
+on("#chat-modal-close", "click", closeChatModal);
+on("#chat-modal", "click", (event) => {
   if (event.target.id === "chat-modal") closeChatModal();
 });
 document.addEventListener("keydown", (event) => {
