@@ -42,6 +42,20 @@ function show(view) {
   $("#app-view").classList.toggle("hidden", view !== "app");
 }
 
+function showAppLoadError(error) {
+  console.error("Gagal memuat data aplikasi", error);
+  const message = "Gagal memuat data. Coba refresh halaman atau login ulang.";
+  const dailyStats = $("#daily-change-stats");
+  const groupList = $("#group-list");
+  const messageList = $("#message-list");
+  if (dailyStats) dailyStats.innerHTML = `<div class="empty-state">${message}</div>`;
+  if (groupList) groupList.innerHTML = `<div class="empty-state">${message}</div>`;
+  if (messageList) {
+    messageList.classList.add("empty-state");
+    messageList.innerHTML = message;
+  }
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, {
     credentials: "same-origin",
@@ -470,7 +484,11 @@ async function boot() {
     state.user = session.user;
     show("app");
     switchView(state.currentView, { load: false });
-    await refreshAll();
+    try {
+      await refreshAll();
+    } catch (error) {
+      showAppLoadError(error);
+    }
     startPolling();
   } else {
     show("login");
@@ -491,9 +509,14 @@ async function login(event) {
     state.user = data.user;
     show("app");
     switchView(state.currentView, { load: false });
-    await refreshAll();
+    try {
+      await refreshAll();
+    } catch (error) {
+      showAppLoadError(error);
+    }
     startPolling();
   } catch (error) {
+    show("login");
     $("#login-error").textContent = "Email atau password tidak valid.";
     $("#login-error").classList.remove("hidden");
   }
