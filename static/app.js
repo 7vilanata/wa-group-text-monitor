@@ -308,7 +308,7 @@ function renderDashboardRangePicker() {
   const firstMonth = parseIsoDate(state.dashboardCalendarMonth) || startOfMonth(new Date());
   const secondMonth = addMonths(firstMonth, 1);
   $("#range-calendar-title").textContent = `${formatMonthTitle(firstMonth)} - ${formatMonthTitle(secondMonth)}`;
-  monthsContainer.innerHTML = [firstMonth, secondMonth].map(renderCalendarMonth).join("");
+  monthsContainer.innerHTML = [firstMonth, secondMonth].map((month) => renderCalendarMonth(month)).join("");
 }
 
 function formatMonthTitle(date) {
