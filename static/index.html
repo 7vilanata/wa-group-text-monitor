@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>WA Group Text Monitor</title>
-    <link rel="stylesheet" href="/static/app.css?v=20260617-3" />
+    <link rel="stylesheet" href="/static/app.css?v=20260617-4" />
   </head>
   <body>
     <main id="login-view" class="login-shell hidden">
@@ -33,6 +33,7 @@
       <nav class="view-switcher app-tabs" aria-label="Navigasi aplikasi">
         <button id="dashboard-tab" class="view-tab active" type="button">Dashboard</button>
         <button id="priority-tab" class="view-tab" type="button">Prioritas</button>
+        <button id="raw-data-tab" class="view-tab" type="button">Raw Data</button>
         <button id="teacher-tab" class="view-tab" type="button">Guru</button>
         <button id="chat-tab" class="view-tab" type="button">Chat</button>
       </nav>
@@ -134,7 +135,9 @@
             <div id="dashboard-breakdowns" class="dashboard-breakdowns"></div>
             </section>
           </section>
+        </section>
 
+        <section id="dashboard-raw-section" class="dashboard-section hidden">
           <section class="daily-table-shell">
             <table class="daily-table">
               <thead>
@@ -315,6 +318,6 @@
       </div>
     </section>
 
-    <script src="/static/app.js?v=20260617-3"></script>
+    <script src="/static/app.js?v=20260617-4"></script>
   </body>
 </html>

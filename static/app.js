@@ -537,7 +537,7 @@ async function refreshAll() {
   if (state.selectedGroupId) {
     await Promise.all([loadContacts(state.selectedGroupId), loadMessages({ preserveScroll: true })]);
   }
-  if (state.currentView === "dashboard" || state.currentView === "priority" || state.currentView === "teacher") {
+  if (state.currentView === "dashboard" || state.currentView === "priority" || state.currentView === "raw-data" || state.currentView === "teacher") {
     await loadDailyChanges();
   }
 }
@@ -683,14 +683,16 @@ function switchView(view, { load = true } = {}) {
   state.currentView = view;
   const isDashboard = view === "dashboard";
   const isPriority = view === "priority";
+  const isRawData = view === "raw-data";
   const isTeacher = view === "teacher";
   const isChat = view === "chat";
-  const isDailyView = isDashboard || isPriority;
+  const isDailyView = isDashboard || isPriority || isRawData;
   const isWideView = isDailyView || isTeacher;
   $("#app-view").classList.toggle("dashboard-mode", isWideView);
   $("#chat-tab").classList.toggle("active", isChat);
   $("#dashboard-tab").classList.toggle("active", isDashboard);
   $("#priority-tab").classList.toggle("active", isPriority);
+  $("#raw-data-tab").classList.toggle("active", isRawData);
   $("#teacher-tab").classList.toggle("active", isTeacher);
   $(".sidebar").classList.toggle("hidden", isWideView);
   $("#chat-sidebar-tools").classList.toggle("hidden", isWideView);
@@ -699,6 +701,7 @@ function switchView(view, { load = true } = {}) {
   $("#dashboard-view").classList.toggle("hidden", !isDailyView);
   $("#dashboard-summary-section").classList.toggle("hidden", !isDashboard);
   $("#dashboard-priority-section").classList.toggle("hidden", !isPriority);
+  $("#dashboard-raw-section").classList.toggle("hidden", !isRawData);
   $("#teacher-view").classList.toggle("hidden", !isTeacher);
   if (isWideView && load) {
     loadDailyChanges().catch(() => {});
@@ -1392,6 +1395,7 @@ on("#login-form", "submit", login);
 on("#logout-button", "click", logout);
 on("#dashboard-tab", "click", () => switchView("dashboard"));
 on("#priority-tab", "click", () => switchView("priority"));
+on("#raw-data-tab", "click", () => switchView("raw-data"));
 on("#teacher-tab", "click", () => switchView("teacher"));
 on("#chat-tab", "click", () => switchView("chat"));
 on("#refresh-button", "click", () => refreshAll());
