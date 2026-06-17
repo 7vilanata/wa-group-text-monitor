@@ -894,6 +894,10 @@ button.range-day:focus {
   padding: 12px;
 }
 
+.dashboard-breakdowns.missing-chat-list {
+  grid-template-columns: 1fr;
+}
+
 .breakdown-column {
   min-width: 0;
   display: grid;
@@ -968,6 +972,55 @@ button.rank-row:focus {
 
 .breakdown-empty {
   min-height: 140px;
+}
+
+.missing-chat-column {
+  grid-column: 1 / -1;
+}
+
+.missing-chat-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.missing-chat-row {
+  align-items: start;
+}
+
+.missing-chat-copy {
+  gap: 5px;
+}
+
+.missing-chat-copy strong,
+.missing-chat-copy span {
+  white-space: normal;
+}
+
+.missing-chat-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.missing-chat-pairs {
+  display: grid;
+  gap: 4px;
+}
+
+.missing-chat-pair,
+.missing-chat-more {
+  color: #465668;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.missing-chat-pair b {
+  color: #314151;
+  font-weight: 850;
+}
+
+.missing-chat-empty {
+  grid-column: 1 / -1;
 }
 
 .daily-table-shell {
@@ -1632,6 +1685,10 @@ button.rank-row:focus {
   }
 
   .dashboard-breakdowns {
+    grid-template-columns: 1fr;
+  }
+
+  .missing-chat-rows {
     grid-template-columns: 1fr;
   }
 

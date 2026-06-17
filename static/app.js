@@ -788,6 +788,7 @@ function summarizeDailyChanges(rows, totals, pagination) {
     (row) => row.group_id,
     (row) => row.group_name || row.wa_chat_id || row.group_id
   );
+  const missingChatGroups = buildMissingChatGroupList(rows);
   const latestPoint = dailySeries[dailySeries.length - 1] || { date: "", count: 0 };
   const previousPoint = dailySeries[dailySeries.length - 2] || { date: "", count: 0 };
   const peakPoint = dailySeries.reduce(
@@ -814,6 +815,7 @@ function summarizeDailyChanges(rows, totals, pagination) {
     changedTeachers,
     students,
     changedGroups,
+    missingChatGroups,
     latestPoint,
     previousPoint,
     peakPoint,
@@ -937,58 +939,97 @@ function renderDailyChangeChart(summary) {
 function renderDashboardBreakdowns(summary) {
   const container = $("#dashboard-breakdowns");
   if (!summary.rows.length) {
-    container.innerHTML = `<div class="empty-state breakdown-empty">Belum ada ranking untuk filter ini.</div>`;
+    container.classList.remove("missing-chat-list");
+    container.innerHTML = `<div class="empty-state breakdown-empty">Belum ada data harian untuk filter ini.</div>`;
     return;
   }
 
-  container.innerHTML = `
-    <div class="breakdown-column">
-      <h4>Grup sering berubah</h4>
-      ${renderGroupRanking(summary.changedGroups.slice(0, 5), "Ya")}
-    </div>
-    <div class="breakdown-column">
-      <h4>Pengubah</h4>
-      ${renderPlainRanking(summary.changers.slice(0, 5))}
-    </div>
-    <div class="breakdown-column">
-      <h4>Guru sering berubah</h4>
-      ${renderPlainRanking(summary.changedTeachers.slice(0, 5))}
+  container.classList.add("missing-chat-list");
+  container.innerHTML = renderMissingChatGroups(summary.missingChatGroups);
+}
+
+function buildMissingChatGroupList(rows) {
+  const grouped = new Map();
+  rows
+    .filter((row) => !row.chat_group_id)
+    .forEach((row) => {
+      const key = String(row.group_id || "-").trim() || "-";
+      const current = grouped.get(key) || {
+        key,
+        latestDate: "",
+        count: 0,
+        pairs: [],
+        pairKeys: new Set(),
+      };
+      const teacher = row.teacher_name || "-";
+      const student = row.student_name || "-";
+      const pairKey = `${teacher}\n${student}`;
+      current.count += 1;
+      if (!current.latestDate || String(row.report_date || "").localeCompare(current.latestDate) > 0) {
+        current.latestDate = row.report_date || "";
+      }
+      if (!current.pairKeys.has(pairKey)) {
+        current.pairKeys.add(pairKey);
+        current.pairs.push({ teacher, student });
+      }
+      grouped.set(key, current);
+    });
+
+  return Array.from(grouped.values())
+    .sort((left, right) => {
+      const byDate = String(right.latestDate || "").localeCompare(String(left.latestDate || ""));
+      if (byDate) return byDate;
+      return right.count - left.count;
+    })
+    .map(({ pairKeys, ...item }) => item);
+}
+
+function renderMissingChatGroups(items) {
+  if (!items.length) {
+    return `
+      <div class="empty-state breakdown-empty missing-chat-empty">
+        Semua Group ID pada filter ini sudah ketemu di tabel chat.
+      </div>
+    `;
+  }
+
+  const visibleItems = items.slice(0, 12);
+  const remainingCount = Math.max(0, items.length - visibleItems.length);
+  return `
+    <div class="breakdown-column missing-chat-column">
+      <h4>Group ID tidak ketemu di tabel chat</h4>
+      <div class="missing-chat-rows">
+        ${visibleItems
+          .map((item, index) => {
+            const visiblePairs = item.pairs.slice(0, 3);
+            const hiddenPairCount = Math.max(0, item.pairs.length - visiblePairs.length);
+            return `
+              <div class="rank-row missing-chat-row">
+                <span class="rank-index">${index + 1}</span>
+                <span class="rank-copy missing-chat-copy">
+                  <strong>${escapeHtml(item.key)}</strong>
+                  <span class="missing-chat-meta">${compactNumber(item.count)} catatan | terakhir ${escapeHtml(formatShortDate(item.latestDate))}</span>
+                  <span class="missing-chat-pairs">
+                    ${visiblePairs
+                      .map(
+                        (pair) => `
+                          <span class="missing-chat-pair">
+                            <b>Guru:</b> ${escapeHtml(pair.teacher)} <b>Murid:</b> ${escapeHtml(pair.student)}
+                          </span>
+                        `
+                      )
+                      .join("")}
+                    ${hiddenPairCount ? `<span class="missing-chat-more">+${compactNumber(hiddenPairCount)} pasangan lain</span>` : ""}
+                  </span>
+                </span>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+      ${remainingCount ? `<div class="result-context">+${compactNumber(remainingCount)} Group ID lain tidak ditampilkan.</div>` : ""}
     </div>
   `;
-}
-
-function renderGroupRanking(items, suffix = "catatan") {
-  if (!items.length) return `<div class="result-context">Belum ada grup dengan Berubah = Ya.</div>`;
-  return items
-    .map((item, index) => {
-      return `
-        <button class="rank-row dashboard-chat-link" type="button" data-group-id="${escapeHtml(item.key)}">
-          <span class="rank-index">${index + 1}</span>
-          <span class="rank-copy">
-            <strong>${escapeHtml(truncate(item.label, 52))}</strong>
-            <span>${compactNumber(item.count)} ${escapeHtml(suffix)} | terakhir ${escapeHtml(formatShortDate(item.latestDate))}</span>
-          </span>
-        </button>
-      `;
-    })
-    .join("");
-}
-
-function renderPlainRanking(items) {
-  if (!items.length) return `<div class="result-context">Belum ada data.</div>`;
-  return items
-    .map((item, index) => {
-      return `
-        <div class="rank-row">
-          <span class="rank-index">${index + 1}</span>
-          <span class="rank-copy">
-            <strong>${escapeHtml(truncate(item.label, 52))}</strong>
-            <span>${compactNumber(item.count)} catatan</span>
-          </span>
-        </div>
-      `;
-    })
-    .join("");
 }
 
 function getDailySortValue(row, key) {

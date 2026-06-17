@@ -920,6 +920,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 SELECT
                     daily_group_changes.id,
                     daily_group_changes.group_id,
+                    groups.id AS chat_group_id,
                     groups.wa_chat_id,
                     groups.name AS group_name,
                     daily_group_changes.report_date,
@@ -931,7 +932,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                     daily_group_changes.created_at,
                     daily_group_changes.updated_at
                 FROM daily_group_changes
-                LEFT JOIN groups ON CAST(groups.id AS TEXT) = daily_group_changes.group_id
+                LEFT JOIN groups ON (
+                    groups.wa_chat_id = daily_group_changes.group_id
+                    OR CAST(groups.id AS TEXT) = daily_group_changes.group_id
+                )
                 {where_sql}
                 ORDER BY daily_group_changes.report_date DESC, daily_group_changes.id DESC
                 LIMIT ?
@@ -946,7 +950,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                     COUNT(DISTINCT daily_group_changes.teacher_name) AS teachers,
                     COUNT(DISTINCT daily_group_changes.student_name) AS students
                 FROM daily_group_changes
-                LEFT JOIN groups ON CAST(groups.id AS TEXT) = daily_group_changes.group_id
+                LEFT JOIN groups ON (
+                    groups.wa_chat_id = daily_group_changes.group_id
+                    OR CAST(groups.id AS TEXT) = daily_group_changes.group_id
+                )
                 {where_sql}
                 """,
                 params,
@@ -1015,6 +1022,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 SELECT
                     daily_group_changes.id,
                     daily_group_changes.group_id,
+                    groups.id AS chat_group_id,
                     groups.wa_chat_id,
                     groups.name AS group_name,
                     daily_group_changes.report_date,
@@ -1026,7 +1034,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                     daily_group_changes.created_at,
                     daily_group_changes.updated_at
                 FROM daily_group_changes
-                LEFT JOIN groups ON CAST(groups.id AS TEXT) = daily_group_changes.group_id
+                LEFT JOIN groups ON (
+                    groups.wa_chat_id = daily_group_changes.group_id
+                    OR CAST(groups.id AS TEXT) = daily_group_changes.group_id
+                )
                 WHERE daily_group_changes.id = ?
                 """,
                 (cur.lastrowid,),
