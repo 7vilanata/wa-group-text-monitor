@@ -993,13 +993,11 @@ function renderMissingChatGroups(items) {
     `;
   }
 
-  const visibleItems = items.slice(0, 12);
-  const remainingCount = Math.max(0, items.length - visibleItems.length);
   return `
     <div class="breakdown-column missing-chat-column">
       <h4>Group ID tidak ketemu di tabel chat</h4>
       <div class="missing-chat-rows">
-        ${visibleItems
+        ${items
           .map((item, index) => {
             const visiblePairs = item.pairs.slice(0, 3);
             const hiddenPairCount = Math.max(0, item.pairs.length - visiblePairs.length);
@@ -1027,7 +1025,6 @@ function renderMissingChatGroups(items) {
           })
           .join("")}
       </div>
-      ${remainingCount ? `<div class="result-context">+${compactNumber(remainingCount)} Group ID lain tidak ditampilkan.</div>` : ""}
     </div>
   `;
 }
