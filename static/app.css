@@ -1303,6 +1303,8 @@ button.rank-row:focus {
 .status-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  height: 26px;
   min-height: 26px;
   padding: 0 9px;
   border: 1px solid transparent;
@@ -1311,6 +1313,8 @@ button.rank-row:focus {
   color: #314151;
   font-size: 12px;
   font-weight: 850;
+  line-height: 1;
+  vertical-align: middle;
   white-space: nowrap;
 }
 
