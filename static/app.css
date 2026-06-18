@@ -161,13 +161,13 @@ select:focus {
 .app-shell {
   height: 100vh;
   display: grid;
-  grid-template-columns: 320px minmax(420px, 1fr) 360px;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: 116px 320px minmax(420px, 1fr) 360px;
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
 }
 
 .app-shell.dashboard-mode {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: 116px minmax(0, 1fr);
 }
 
 .sidebar,
@@ -177,6 +177,8 @@ select:focus {
 }
 
 .sidebar {
+  grid-column: 2;
+  grid-row: 1;
   display: grid;
   grid-template-rows: auto 1fr;
   border-right: 1px solid var(--line);
@@ -198,31 +200,102 @@ select:focus {
 }
 
 .view-switcher {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-  padding: 12px;
-  border-bottom: 1px solid var(--line);
+  grid-column: 1;
+  grid-row: 1;
 }
 
-.app-tabs {
-  grid-column: 1 / -1;
-  background: var(--surface);
+.app-rail {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: start;
+  border-right: 1px solid #cfd6df;
+  background: #fbfcfd;
+}
+
+.app-rail-mark {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  margin: 44px auto 70px;
+  color: #2446c7;
+}
+
+.app-rail-mark svg {
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+.view-tab svg {
+  width: 25px;
+  height: 25px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+.app-rail-tabs {
+  display: grid;
+  gap: 20px;
+  align-content: start;
 }
 
 .view-tab {
-  min-height: 38px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
-  color: #314151;
-  font-weight: 800;
+  position: relative;
+  width: 100%;
+  min-height: 78px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #50515e;
+  font-weight: 650;
+}
+
+.view-tab span {
+  font-size: 14px;
+  line-height: 1.15;
+  margin-top: 5px;
+}
+
+.view-tab:hover,
+.view-tab:focus-visible {
+  background: #f0f2f6;
+  color: #2446c7;
+  outline: none;
 }
 
 .view-tab.active {
-  border-color: #9dd2af;
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: #f3f4f7;
+  color: #2446c7;
+  font-weight: 750;
+}
+
+.view-tab.active::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: #2446c7;
+}
+
+.rail-logout {
+  min-height: 56px;
+  margin-bottom: 14px;
+  color: var(--muted);
 }
 
 .sidebar-tools {
@@ -294,9 +367,16 @@ select:focus {
 }
 
 .conversation {
+  grid-column: 3;
+  grid-row: 1;
   display: grid;
   grid-template-rows: auto 1fr;
   min-width: 0;
+}
+
+.inspector {
+  grid-column: 4;
+  grid-row: 1;
 }
 
 .conversation-header,
@@ -460,18 +540,19 @@ select:focus {
 
 .dashboard {
   grid-column: 2 / -1;
-  grid-row: 2;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  background: #f4f6f8;
+  background: var(--bg);
 }
 
 .dashboard-mode .dashboard,
 .dashboard-mode .teacher-view {
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
+  grid-row: 1;
 }
 
 .dashboard-header {
@@ -667,6 +748,10 @@ button.range-day:focus {
 
 .dashboard-section {
   min-height: 0;
+}
+
+#dashboard-raw-section {
+  padding-top: 12px;
 }
 
 .dashboard-summary {
@@ -1268,7 +1353,7 @@ button.rank-row:focus {
 
 .teacher-view {
   grid-column: 2 / -1;
-  grid-row: 2;
+  grid-row: 1;
   overflow: hidden;
   background: #f4f6f8;
 }
@@ -1576,7 +1661,11 @@ button.rank-row:focus {
 
 @media (max-width: 1180px) {
   .app-shell {
-    grid-template-columns: 280px minmax(360px, 1fr);
+    grid-template-columns: 96px 280px minmax(360px, 1fr);
+  }
+
+  .app-shell.dashboard-mode {
+    grid-template-columns: 96px minmax(0, 1fr);
   }
 
   .inspector {
@@ -1585,7 +1674,7 @@ button.rank-row:focus {
 
   .dashboard,
   .teacher-view {
-    grid-column: 2;
+    grid-column: 2 / -1;
   }
 
   .dashboard-summary,
@@ -1610,22 +1699,54 @@ button.rank-row:focus {
   .app-shell {
     height: auto;
     min-height: 100vh;
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
+    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-rows: auto auto;
     overflow: auto;
   }
 
-  .app-tabs {
+  .app-shell.dashboard-mode {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .app-rail {
     grid-column: 1;
+    grid-row: 1 / -1;
+  }
+
+  .app-rail-mark {
+    width: 34px;
+    height: 34px;
+    margin: 32px auto 48px;
+  }
+
+  .app-rail-tabs {
+    gap: 12px;
+  }
+
+  .view-tab {
+    min-height: 66px;
+  }
+
+  .view-tab svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .view-tab span {
+    font-size: 12px;
   }
 
   .sidebar {
+    grid-column: 2;
+    grid-row: 1;
     max-height: 42vh;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
 
   .conversation {
+    grid-column: 2;
+    grid-row: 2;
     min-height: 58vh;
   }
 
@@ -1643,8 +1764,8 @@ button.rank-row:focus {
 
   .dashboard,
   .teacher-view {
-    grid-column: 1;
-    grid-row: auto;
+    grid-column: 2;
+    grid-row: 1;
     min-height: 58vh;
   }
 
