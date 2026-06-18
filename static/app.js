@@ -1093,15 +1093,13 @@ function renderDailyChanges(rows) {
   const startIndex = (state.dailyPage - 1) * state.dailyPageSize;
   const visibleRows = sortDailyChanges(rows).slice(startIndex, startIndex + state.dailyPageSize);
   container.innerHTML = visibleRows
-    .map((row) => {
-      const context = row.group_name || row.wa_chat_id || "";
-      return `
+    .map(
+      (row) => `
         <tr>
           <td>
             <button class="daily-group-button" type="button" data-group-id="${escapeHtml(row.group_id)}">
               ${escapeHtml(row.group_id)}
             </button>
-            ${context ? `<div class="result-context">${escapeHtml(context)}</div>` : ""}
           </td>
           <td class="date-cell">${escapeHtml(row.report_date || "-")}</td>
           <td>${escapeHtml(row.teacher_name || "-")}</td>
@@ -1110,8 +1108,8 @@ function renderDailyChanges(rows) {
           <td>${renderStatusBadge(row.changed, "changed")}</td>
           <td>${renderStatusBadge(row.changed_by, "changer")}</td>
         </tr>
-      `;
-    })
+      `
+    )
     .join("");
 }
 
