@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>WA Group Text Monitor</title>
-    <link rel="stylesheet" href="/static/app.css?v=20260618-12" />
+    <link rel="stylesheet" href="/static/app.css?v=20260618-18" />
   </head>
   <body>
     <main id="login-view" class="login-shell hidden">
@@ -92,7 +92,6 @@
       <aside class="sidebar hidden">
         <header class="brand">
           <div>
-            <p class="eyebrow">Text-only</p>
             <h1>WA Groups</h1>
           </div>
         </header>
@@ -109,10 +108,13 @@
       <section id="chat-view" class="conversation hidden">
         <header class="conversation-header">
           <div class="conversation-title">
-            <p id="selected-group-meta" class="eyebrow">Belum ada grup dipilih</p>
             <div id="group-title-row" class="group-title-row">
               <h2 id="selected-group-name">Percakapan</h2>
-              <button id="edit-group-name" class="ghost-button hidden" type="button" aria-label="Edit nama grup">Edit</button>
+              <button id="edit-group-name" class="chat-icon-button hidden" type="button" aria-label="Edit nama grup" title="Edit nama grup">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m14 5 5 5M4 20l5-1 11-11a2 2 0 0 0-5-5L4 14z" />
+                </svg>
+              </button>
             </div>
             <form id="group-name-form" class="group-name-form hidden">
               <div class="group-name-fields">
@@ -123,9 +125,11 @@
               <p id="group-name-error" class="group-name-error" role="alert"></p>
             </form>
           </div>
-          <div class="header-actions">
-            <button id="refresh-button" class="secondary-button">Refresh</button>
-          </div>
+          <button id="refresh-button" class="chat-icon-button" type="button" aria-label="Muat ulang percakapan" title="Muat ulang percakapan">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 4v5h-5M20 9a8 8 0 1 0 .2 5" />
+            </svg>
+          </button>
         </header>
 
         <section id="message-list" class="message-list empty-state">
@@ -335,12 +339,24 @@
             <h3>Percakapan</h3>
           </div>
           <div class="chat-tools">
-            <input id="message-keyword" type="search" placeholder="Cari di grup ini" />
-            <div class="date-inputs">
-              <input id="from-filter" type="date" aria-label="Tanggal mulai" />
-              <input id="to-filter" type="date" aria-label="Tanggal akhir" />
+            <p id="selected-group-meta" class="chat-group-id hidden">
+              <span>ID Grup</span>
+              <code id="selected-group-wa-id"></code>
+            </p>
+            <div class="chat-search-row">
+              <input id="message-keyword" type="search" placeholder="Cari di grup ini" aria-label="Cari di grup ini" />
+              <button id="reset-filter" class="ghost-button" type="button">Reset</button>
             </div>
-            <button id="reset-filter" class="ghost-button">Reset</button>
+            <div class="date-inputs">
+              <label>
+                Mulai
+                <input id="from-filter" type="date" />
+              </label>
+              <label>
+                Sampai
+                <input id="to-filter" type="date" />
+              </label>
+            </div>
           </div>
         </section>
 
@@ -357,8 +373,13 @@
             <h3>Search Global</h3>
           </div>
           <div class="global-search">
-            <input id="global-search" type="search" placeholder="Cari semua pesan" />
-            <button id="global-search-button" class="secondary-button">Cari</button>
+            <input id="global-search" type="search" placeholder="Cari semua pesan" aria-label="Cari semua pesan" />
+            <button id="global-search-button" class="chat-icon-button" type="button" aria-label="Cari pesan" title="Cari pesan">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="10.5" cy="10.5" r="6" />
+                <path d="m15 15 4.5 4.5" />
+              </svg>
+            </button>
           </div>
           <div id="search-results" class="search-results"></div>
         </section>
@@ -380,6 +401,6 @@
       </div>
     </section>
 
-    <script src="/static/app.js?v=20260618-2"></script>
+    <script src="/static/app.js?v=20260618-4"></script>
   </body>
 </html>

@@ -608,9 +608,8 @@ function renderGroups() {
 
 function renderGroupHeader(group) {
   $("#selected-group-name").textContent = group ? group.name : "Percakapan";
-  $("#selected-group-meta").textContent = group?.wa_chat_id
-    ? `${group.participant_count || "-"} anggota | ${group.wa_chat_id}`
-    : group ? "" : "Belum ada grup dipilih";
+  $("#selected-group-wa-id").textContent = group?.wa_chat_id || "";
+  $("#selected-group-meta").classList.toggle("hidden", !group?.wa_chat_id);
   $("#edit-group-name").classList.toggle("hidden", !group || state.user?.role !== "admin");
 }
 
@@ -697,7 +696,7 @@ function renderMembers() {
     .map(
       (contact) => `
         <li class="member-item">
-          <span class="member-name">${escapeHtml(contact.display_name || "-")}</span>
+          <span class="member-name ${getSenderTone(contact.wa_contact_id)}">${escapeHtml(contact.display_name || "-")}</span>
           <span class="member-number">${escapeHtml(formatWhatsAppNumber(contact.wa_contact_id))}</span>
         </li>
       `
