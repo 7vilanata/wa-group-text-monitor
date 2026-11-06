@@ -223,7 +223,7 @@ function getMessageSenderKey(message) {
 }
 
 function getSenderTone(senderKey) {
-  const colors = 12;
+  const colors = 20;
   const value = String(senderKey || "");
   // FNV-1a mixes the full contact ID before selecting a palette entry.
   let hash = 0x811c9dc5;

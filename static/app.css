@@ -626,23 +626,23 @@ select:focus {
 }
 
 .tone-1 {
-  color: #b13c12;
+  color: #a6320d;
 }
 
 .tone-2 {
-  color: #167044;
+  color: #166339;
 }
 
 .tone-3 {
-  color: #6332b0;
+  color: #651c9d;
 }
 
 .tone-4 {
-  color: #805600;
+  color: #805a00;
 }
 
 .tone-5 {
-  color: #aa216d;
+  color: #a51660;
 }
 
 .tone-6 {
@@ -650,7 +650,7 @@ select:focus {
 }
 
 .tone-7 {
-  color: #aa1831;
+  color: #a30c2a;
 }
 
 .tone-8 {
@@ -658,7 +658,7 @@ select:focus {
 }
 
 .tone-9 {
-  color: #12507a;
+  color: #123b69;
 }
 
 .tone-10 {
@@ -666,7 +666,39 @@ select:focus {
 }
 
 .tone-11 {
-  color: #445064;
+  color: #50545e;
+}
+
+.tone-12 {
+  color: #c51c13;
+}
+
+.tone-13 {
+  color: #087295;
+}
+
+.tone-14 {
+  color: #46224f;
+}
+
+.tone-15 {
+  color: #3e7605;
+}
+
+.tone-16 {
+  color: #613e91;
+}
+
+.tone-17 {
+  color: #322621;
+}
+
+.tone-18 {
+  color: #8e3f65;
+}
+
+.tone-19 {
+  color: #073b37;
 }
 
 .message-body {

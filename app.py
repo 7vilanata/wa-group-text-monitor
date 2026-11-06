@@ -657,6 +657,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             content_type = "text/css; charset=utf-8"
         elif file_path.suffix == ".js":
             content_type = "application/javascript; charset=utf-8"
+        elif file_path.suffix == ".svg":
+            content_type = "image/svg+xml"
         body = file_path.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", content_type)
