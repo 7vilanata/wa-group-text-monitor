@@ -7,7 +7,7 @@ import os
 import secrets
 import sqlite3
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, time as datetime_time, timedelta, timezone
 from http import cookies
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -24,6 +24,7 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 ADMIN_NAME = os.environ.get("ADMIN_NAME", "Admin")
 SESSION_TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", str(60 * 60 * 12)))
 GROUP_NAME_MAX_LENGTH = 120
+WIB = timezone(timedelta(hours=7))
 
 
 def utc_now():
@@ -255,6 +256,35 @@ def normalize_date(value):
         return datetime.fromisoformat(raw).date().isoformat()
     except ValueError:
         return raw[:10]
+
+
+def format_timestamp(timestamp, *, tz=timezone.utc, timespec="microseconds"):
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    return timestamp.astimezone(tz).isoformat(timespec=timespec)
+
+
+def format_message_timestamp(value, *, tz=timezone.utc, timespec="microseconds"):
+    try:
+        return format_timestamp(datetime.fromisoformat(value), tz=tz, timespec=timespec)
+    except (ValueError, OverflowError):
+        return None
+
+
+def chat_time_bound(value, *, end=False):
+    if not value:
+        return None
+    if len(value) == 10:
+        day = date.fromisoformat(value)
+        if day.isoformat() == value:
+            if end:
+                day += timedelta(days=1)
+            return format_timestamp(datetime.combine(day, datetime_time.min, WIB))
+    if len(value) > 10 and value[10] in "T ":
+        timestamp = format_message_timestamp(value)
+        if timestamp is not None:
+            return timestamp
+    raise ValueError("Expected YYYY-MM-DD or an ISO 8601 timestamp")
 
 
 def deep_get(payload, paths, default=None):
@@ -876,7 +906,50 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.send_json(403, {"error": "forbidden"})
             return
 
-        messages = self.load_group_messages(group["id"], query)
+        from_value = query_value(query, "from").strip()
+        to_value = query_value(query, "to").strip()
+        try:
+            start = chat_time_bound(from_value)
+            end = chat_time_bound(to_value, end=True)
+        except (ValueError, OverflowError):
+            self.send_json(400, {"error": "invalid_date_range"})
+            return
+        end_exclusive = len(to_value) == 10
+        if start and end and (start > end or (start == end and end_exclusive)):
+            self.send_json(400, {"error": "invalid_date_range"})
+            return
+
+        before_id = query_value(query, "before_id")
+        if before_id and not (before_id.isascii() and before_id.isdecimal()):
+            self.send_json(400, {"error": "invalid_before_id"})
+            return
+        limit = query_int(query, "limit", 80, 1, 200)
+        period = (start, end, end_exclusive) if start or end else None
+        messages = self.load_group_messages(
+            group["id"], query, limit=limit + 1, period=period, before_id=before_id
+        )
+        has_more = len(messages) > limit
+        messages = messages[-limit:]
+        next_before_id = messages[0]["id"] if has_more else None
+        if query_value(query, "format") == "compact":
+            self.send_json(
+                200,
+                {
+                    "messages": [
+                        {
+                            "waktu": format_message_timestamp(
+                                message["wa_timestamp"], tz=WIB, timespec="auto"
+                            ),
+                            "pengirim": message["sender_name"],
+                            "pesan": message["body"],
+                        }
+                        for message in messages
+                    ],
+                    "next_before_id": next_before_id,
+                },
+            )
+            return
+
         self.send_json(
             200,
             {
@@ -884,13 +957,14 @@ class AppHandler(SimpleHTTPRequestHandler):
                 "filters": {
                     "q": query_value(query, "q").strip() or None,
                     "sender_id": query_value(query, "sender_id") or None,
-                    "from": query_value(query, "from") or None,
-                    "to": query_value(query, "to") or None,
+                    "from": from_value or None,
+                    "to": to_value or None,
                 },
                 "pagination": {
-                    "limit": query_int(query, "limit", 80, 1, 200),
+                    "limit": limit,
                     "returned": len(messages),
                     "order": "asc",
+                    "next_before_id": next_before_id,
                 },
                 "messages": [
                     {
@@ -1148,23 +1222,43 @@ class AppHandler(SimpleHTTPRequestHandler):
                 row = None
         return row_to_dict(row)
 
-    def load_group_messages(self, group_id, query):
+    def load_group_messages(self, group_id, query, *, limit=None, period=None, before_id=None):
         clauses = ["messages.group_id = ?"]
         params = [group_id]
+        timestamp = "messages.wa_timestamp"
+        start = query_value(query, "from")
+        end = query_value(query, "to")
+        end_exclusive = False
+        if period:
+            start, end, end_exclusive = period
+            # Stored ISO timestamps can carry different UTC offsets and precision.
+            timestamp = "message_timestamp_key(messages.wa_timestamp)"
         if query_value(query, "sender_id"):
             clauses.append("contacts.id = ?")
             params.append(query_value(query, "sender_id"))
-        if query_value(query, "from"):
-            clauses.append("messages.wa_timestamp >= ?")
-            params.append(query_value(query, "from"))
-        if query_value(query, "to"):
-            clauses.append("messages.wa_timestamp <= ?")
-            params.append(query_value(query, "to"))
+        if start:
+            clauses.append(f"{timestamp} >= ?")
+            params.append(start)
+        if end:
+            operator = "<" if end_exclusive else "<="
+            clauses.append(f"{timestamp} {operator} ?")
+            params.append(end)
+        if before_id:
+            clauses.append(
+                f"""({timestamp}, messages.id) < (
+                    SELECT {timestamp}, messages.id FROM messages
+                    WHERE messages.group_id = ? AND messages.id = ?
+                )"""
+            )
+            params.extend((group_id, before_id))
         if query_value(query, "q").strip():
             clauses.append("messages.body LIKE ?")
             params.append(f"%{query_value(query, 'q').strip()}%")
-        limit = query_int(query, "limit", 80, 1, 200)
+        if limit is None:
+            limit = query_int(query, "limit", 80, 1, 200)
         with db() as conn:
+            if period:
+                conn.create_function("message_timestamp_key", 1, format_message_timestamp, deterministic=True)
             rows = conn.execute(
                 f"""
                 SELECT
@@ -1180,7 +1274,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 FROM messages
                 JOIN contacts ON contacts.id = messages.sender_id
                 WHERE {" AND ".join(clauses)}
-                ORDER BY messages.wa_timestamp DESC, messages.id DESC
+                ORDER BY {timestamp} DESC, messages.id DESC
                 LIMIT ?
                 """,
                 params + [limit],

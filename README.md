@@ -115,7 +115,7 @@ Jika event bukan dari grup atau tidak memiliki isi teks, response akan `ignored`
 Endpoint ini digunakan untuk mengambil data chat/pesan teks dari satu grup. Request bisa memakai cookie session dari login dashboard atau header `X-Webhook-Secret` agar mudah dipakai dari n8n.
 
 ```http
-GET /api/chats?group_id=1&limit=50
+GET /api/chats?group_id=1&from=2026-06-01&to=2026-06-07&limit=50
 X-Webhook-Secret: dev-secret
 ```
 
@@ -125,7 +125,7 @@ Contoh request untuk n8n atau integrasi server-to-server:
 
 ```bash
 curl -H 'X-Webhook-Secret: dev-secret' \
-  'http://127.0.0.1:8000/api/chats?group_id=1&limit=10'
+  'http://127.0.0.1:8000/api/chats?group_id=1&from=2026-06-01&to=2026-06-07&limit=10'
 ```
 
 Contoh request dengan WA chat id group:
@@ -162,10 +162,16 @@ Query parameter yang didukung:
 | `limit` | Tidak | `50` | Jumlah pesan, minimal `1`, maksimal `200`, default `80`. |
 | `q` | Tidak | `order` | Filter keyword pada isi pesan. |
 | `sender_id` | Tidak | `1` | Filter berdasarkan ID internal contact/sender. |
-| `from` | Tidak | `2026-06-01T00:00:00+00:00` | Ambil pesan mulai timestamp ini. |
-| `to` | Tidak | `2026-06-07T23:59:59+00:00` | Ambil pesan sampai timestamp ini. |
+| `from` | Tidak | `2026-06-01` | Batas awal inklusif. Tanggal polos dimulai pukul `00:00` WIB. |
+| `to` | Tidak | `2026-06-07` | Batas akhir inklusif. Tanggal polos mencakup seluruh hari tersebut dalam WIB. |
+| `before_id` | Tidak | `123` | Kirim nilai `pagination.next_before_id` atau `next_before_id` pada format ringkas untuk mengambil halaman pesan yang lebih lama. |
+| `format` | Tidak | `compact` | Aktifkan respons ringkas. Request biasa menerima respons lengkap. |
 
 `*` Isi salah satu dari `group_id` atau `wa_chat_id`.
+
+`from` dan `to` juga menerima timestamp ISO 8601, misalnya `2026-06-01T00:00:00+07:00` atau `2026-05-31T17:00:00Z`. Timestamp tanpa offset dianggap UTC. Gunakan `--data-urlencode` di `curl` atau kolom **Query Parameters** di n8n untuk mengirim offset yang mengandung `+`.
+
+Setiap halaman berisi pesan terbaru yang masih sesuai dengan filter, diurutkan dari yang terlama ke terbaru. Untuk mengambil seluruh periode, ulangi request dengan grup dan filter yang sama serta `before_id` dari `pagination.next_before_id` sampai nilainya `null`. Jika menyusun satu daftar kronologis, tempatkan setiap halaman lanjutan sebelum halaman sebelumnya. Periode tanpa pesan mengembalikan `messages: []`.
 
 Contoh response sukses:
 
@@ -181,13 +187,14 @@ Contoh response sukses:
   "filters": {
     "q": null,
     "sender_id": null,
-    "from": null,
-    "to": null
+    "from": "2026-06-01",
+    "to": "2026-06-07"
   },
   "pagination": {
     "limit": 10,
     "returned": 1,
-    "order": "asc"
+    "order": "asc",
+    "next_before_id": null
   },
   "messages": [
     {
@@ -209,7 +216,31 @@ Contoh response sukses:
 }
 ```
 
-Response error umum:
+### Respons ringkas
+
+Tambahkan `format=compact` untuk menerima waktu pesan, nama pengirim, dan isi pesan. Autentikasi dan filter berlaku seperti pada respons lengkap.
+
+```http
+GET /api/chats?group_id=1&from=2026-06-01&to=2026-06-07&limit=10&format=compact
+X-Webhook-Secret: dev-secret
+```
+
+```json
+{
+  "messages": [
+    {
+      "waktu": "2026-06-07T05:00:00+07:00",
+      "pengirim": "Budi",
+      "pesan": "Update: order batch pagi sudah selesai."
+    }
+  ],
+  "next_before_id": null
+}
+```
+
+`waktu` memakai ISO 8601 dalam WIB. Jika timestamp tersimpan tidak bisa dibaca, nilainya `null`. Jika `next_before_id` berisi angka, kirim kembali request yang sama dengan menambahkan `before_id` bernilai angka tersebut.
+
+### Respons error
 
 ```json
 { "error": "unauthorized" }
@@ -218,6 +249,8 @@ Response error umum:
 ```json
 { "error": "group_not_found" }
 ```
+
+Rentang tanggal tidak valid atau terbalik mengembalikan HTTP `400` dengan `error: invalid_date_range`.
 
 ## Dashboard Harian Perubahan Grup
 
