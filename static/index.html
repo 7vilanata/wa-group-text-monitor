@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>WA Group Text Monitor</title>
-    <link rel="stylesheet" href="/static/app.css?v=20260618-18" />
+    <link rel="stylesheet" href="/static/app.css?v=20260618-21" />
   </head>
   <body>
     <main id="login-view" class="login-shell hidden">
@@ -281,7 +281,7 @@
 
       <section id="teacher-view" class="teacher-view teacher-dashboard hidden">
         <section class="teacher-filters">
-          <input id="teacher-name-filter" type="search" placeholder="Cari nama guru" />
+          <input id="teacher-name-filter" type="search" placeholder="Cari nama guru" aria-label="Cari nama guru" />
           <div id="teacher-date-range" class="date-range-picker">
             <button id="teacher-date-range-trigger" class="date-range-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
               <span id="teacher-date-range-label">Semua tanggal</span>
@@ -306,29 +306,17 @@
         </section>
 
         <section class="teacher-column">
-          <div class="teacher-column-header">
-            <div>
-              <p class="eyebrow">Guru</p>
-            </div>
-          </div>
+          <header class="teacher-column-header"><h3>Guru</h3></header>
           <div id="teacher-list" class="teacher-list empty-state">Belum ada data guru.</div>
         </section>
 
         <section class="teacher-column">
-          <div class="teacher-column-header">
-            <div>
-              <p id="teacher-student-meta" class="eyebrow">Murid</p>
-            </div>
-          </div>
+          <header class="teacher-column-header"><h3>Murid</h3></header>
           <div id="teacher-student-list" class="teacher-list empty-state">Pilih guru untuk melihat murid.</div>
         </section>
 
         <section class="teacher-chat-column">
-          <div class="teacher-column-header">
-            <div>
-              <p id="teacher-chat-meta" class="eyebrow">Chat</p>
-            </div>
-          </div>
+          <header class="teacher-column-header"><h3>Chat</h3></header>
           <div id="teacher-chat-messages" class="teacher-chat-messages empty-state">Pilih murid untuk melihat chat.</div>
         </section>
       </section>
@@ -401,6 +389,6 @@
       </div>
     </section>
 
-    <script src="/static/app.js?v=20260618-4"></script>
+    <script src="/static/app.js?v=20260618-6"></script>
   </body>
 </html>

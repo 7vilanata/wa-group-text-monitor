@@ -26,6 +26,7 @@ const state = {
   selectedStudentKey: "",
   selectedTeacherGroupId: "",
   teacherChatLoadedKey: "",
+  teacherChatRequest: null,
   pollTimer: null,
   lastRenderedGroupId: null,
 };
@@ -222,13 +223,14 @@ function getMessageSenderKey(message) {
 }
 
 function getSenderTone(senderKey) {
-  const colors = 6;
+  const colors = 12;
   const value = String(senderKey || "");
-  let hash = 0;
+  // FNV-1a mixes the full contact ID before selecting a palette entry.
+  let hash = 0x811c9dc5;
   for (let index = 0; index < value.length; index += 1) {
-    hash = (hash + value.charCodeAt(index) * (index + 1)) % colors;
+    hash = Math.imul(hash ^ value.charCodeAt(index), 0x01000193);
   }
-  return `tone-${hash}`;
+  return `tone-${((hash ^ (hash >>> 16)) >>> 0) % colors}`;
 }
 
 function renderMessageBubble(message, previousMessage) {
@@ -696,7 +698,7 @@ function renderMembers() {
     .map(
       (contact) => `
         <li class="member-item">
-          <span class="member-name ${getSenderTone(contact.wa_contact_id)}">${escapeHtml(contact.display_name || "-")}</span>
+          <span class="member-name ${getSenderTone(contact.wa_contact_id || contact.id)}">${escapeHtml(contact.display_name || "-")}</span>
           <span class="member-number">${escapeHtml(formatWhatsAppNumber(contact.wa_contact_id))}</span>
         </li>
       `
@@ -770,6 +772,10 @@ function switchView(view, { load = true } = {}) {
   $("#dashboard-priority-section").classList.toggle("hidden", !isPriority);
   $("#dashboard-raw-section").classList.toggle("hidden", !isRawData);
   $("#teacher-view").classList.toggle("hidden", !isTeacher);
+  if (isTeacher) {
+    const chat = $("#teacher-chat-messages");
+    chat.scrollTop = chat.scrollHeight;
+  }
   if (isWideView && load) {
     loadDailyChanges().catch(() => {});
   }
@@ -787,6 +793,7 @@ function renderDashboardGroupFilter() {
 }
 
 function resetTeacherSelection() {
+  state.teacherChatRequest?.abort();
   state.selectedTeacherKey = "";
   state.selectedStudentKey = "";
   state.selectedTeacherGroupId = "";
@@ -1265,9 +1272,7 @@ function renderTeacherDashboard() {
 
   const teachers = buildTeacherSummaries(state.dailyChanges);
   if (!teachers.length) {
-    state.selectedTeacherKey = "";
-    state.selectedStudentKey = "";
-    state.selectedTeacherGroupId = "";
+    resetTeacherSelection();
     teacherContainer.classList.add("empty-state");
     teacherContainer.innerHTML = "Belum ada data guru untuk filter ini.";
     studentContainer.classList.add("empty-state");
@@ -1287,6 +1292,7 @@ function renderTeacherDashboard() {
     .map((teacher) => {
       return `
         <button class="teacher-list-item ${teacher.key === state.selectedTeacherKey ? "active" : ""}" type="button"
+          aria-pressed="${teacher.key === state.selectedTeacherKey}"
           data-teacher-key="${escapeHtml(teacher.key)}">
           <span class="teacher-item-main">
             <strong>${escapeHtml(truncate(teacher.label, 54))}</strong>
@@ -1304,7 +1310,6 @@ function renderTeacherStudents() {
   const container = $("#teacher-student-list");
   if (!container) return;
   const students = buildStudentSummaries(state.dailyChanges, state.selectedTeacherKey);
-  $("#teacher-student-meta").textContent = "Murid";
 
   if (!students.length) {
     state.selectedStudentKey = "";
@@ -1328,6 +1333,7 @@ function renderTeacherStudents() {
         student.key === state.selectedStudentKey && String(row.group_id || "") === String(state.selectedTeacherGroupId || "");
       return `
         <button class="teacher-list-item ${isActive ? "active" : ""}" type="button"
+          aria-pressed="${isActive}"
           data-student-key="${escapeHtml(student.key)}"
           data-group-id="${escapeHtml(row.group_id || "")}">
           <span class="teacher-item-main">
@@ -1343,7 +1349,6 @@ function renderTeacherStudents() {
 }
 
 function renderTeacherChatEmpty(message) {
-  $("#teacher-chat-meta").textContent = "Chat";
   const container = $("#teacher-chat-messages");
   container.classList.add("empty-state");
   container.innerHTML = escapeHtml(message);
@@ -1351,17 +1356,20 @@ function renderTeacherChatEmpty(message) {
 
 function renderTeacherChatMessages(messages) {
   const container = $("#teacher-chat-messages");
-  const previousScrollTop = container.scrollTop;
   container.classList.toggle("empty-state", !messages.length);
   if (!messages.length) {
     container.innerHTML = "Belum ada pesan teks untuk filter ini.";
     return;
   }
   container.innerHTML = messages.map((message, index) => renderMessageBubble(message, messages[index - 1])).join("");
-  container.scrollTop = previousScrollTop;
+  container.scrollTop = container.scrollHeight;
 }
 
-async function loadTeacherChat() {
+async function loadTeacherChatIfNeeded() {
+  const loadedKey = getTeacherChatLoadedKey();
+  if (state.currentView !== "teacher" || loadedKey === state.teacherChatLoadedKey) return;
+  state.teacherChatLoadedKey = loadedKey;
+  state.teacherChatRequest?.abort();
   if (!state.selectedTeacherGroupId) {
     renderTeacherChatEmpty("Chat untuk murid ini belum ditemukan.");
     return;
@@ -1371,18 +1379,16 @@ async function loadTeacherChat() {
   container.innerHTML = "Memuat percakapan...";
   const params = getTeacherChatRangeQuery();
   params.set("group_id", state.selectedTeacherGroupId);
-  const data = await api(`/api/chats?${params.toString()}`);
-  $("#teacher-chat-meta").textContent = "Chat";
-  renderTeacherChatMessages(data.messages || []);
-}
-
-function loadTeacherChatIfNeeded() {
-  const loadedKey = getTeacherChatLoadedKey();
-  if (loadedKey === state.teacherChatLoadedKey) return;
-  state.teacherChatLoadedKey = loadedKey;
-  loadTeacherChat().catch(() => {
-    renderTeacherChatEmpty("Chat untuk murid ini belum ditemukan.");
-  });
+  const request = new AbortController();
+  state.teacherChatRequest = request;
+  try {
+    const data = await api(`/api/chats?${params.toString()}`, { signal: request.signal });
+    if (!request.signal.aborted) renderTeacherChatMessages(data.messages || []);
+  } catch {
+    if (!request.signal.aborted) renderTeacherChatEmpty("Chat untuk murid ini belum ditemukan.");
+  } finally {
+    if (state.teacherChatRequest === request) state.teacherChatRequest = null;
+  }
 }
 
 function closeChatModal() {
