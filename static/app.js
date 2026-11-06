@@ -1,6 +1,7 @@
 const state = {
   user: null,
   groups: [],
+  groupsRequest: 0,
   selectedGroupId: null,
   currentView: "dashboard",
   contacts: [],
@@ -30,6 +31,8 @@ const state = {
 };
 
 const $ = (selector) => document.querySelector(selector);
+const GROUP_LIST_NAME_LIMIT = 24;
+let groupScrollTimer;
 
 function on(selector, eventName, handler) {
   const element = $(selector);
@@ -526,6 +529,8 @@ async function logout() {
   await api("/api/auth/logout", { method: "POST" });
   state.user = null;
   state.selectedGroupId = null;
+  setGroupNameEditing(false);
+  renderGroupHeader();
   state.currentView = "dashboard";
   switchView(state.currentView, { load: false });
   stopPolling();
@@ -557,9 +562,13 @@ function stopPolling() {
 }
 
 async function loadGroups() {
+  const request = ++state.groupsRequest;
   const query = encodeURIComponent($("#group-search").value.trim());
   const data = await api(`/api/groups?q=${query}`);
+  if (request !== state.groupsRequest) return;
   state.groups = data.groups;
+  const selected = state.groups.find((group) => Number(group.id) === Number(state.selectedGroupId));
+  if (selected) renderGroupHeader(selected);
   renderGroups();
   renderDashboardGroupFilter();
   if (!state.selectedGroupId && state.groups.length) {
@@ -574,38 +583,99 @@ function renderGroups() {
     return;
   }
   container.innerHTML = state.groups
-    .map(
-      (group) => `
+    .map((group) => {
+      const characters = Array.from(group.name);
+      const name = characters.length > GROUP_LIST_NAME_LIMIT
+        ? `${characters.slice(0, GROUP_LIST_NAME_LIMIT - 1).join("")}…`
+        : group.name;
+      return `
         <button class="group-item ${Number(state.selectedGroupId) === Number(group.id) ? "active" : ""}"
           data-group-id="${group.id}">
           <span class="group-row">
-            <span class="group-name">${escapeHtml(group.name)}</span>
+            <span class="group-name" title="${escapeHtml(group.name)}">${escapeHtml(name)}</span>
             <span class="group-time">${escapeHtml(formatTime(group.last_message_at))}</span>
           </span>
           <span class="last-message">${escapeHtml(truncate(group.last_message || "Belum ada pesan", 150))}</span>
           <span class="group-time">${Number(group.messages_today || 0)} pesan hari ini</span>
         </button>
-      `
-    )
+      `;
+    })
     .join("");
   container.querySelectorAll(".group-item").forEach((button) => {
     button.addEventListener("click", () => selectGroup(button.dataset.groupId));
   });
 }
 
-async function selectGroup(groupId) {
-  state.selectedGroupId = groupId;
-  const group = state.groups.find((item) => Number(item.id) === Number(groupId));
+function renderGroupHeader(group) {
   $("#selected-group-name").textContent = group ? group.name : "Percakapan";
-  $("#selected-group-meta").textContent = group
+  $("#selected-group-meta").textContent = group?.wa_chat_id
     ? `${group.participant_count || "-"} anggota | ${group.wa_chat_id}`
-    : "Belum ada grup dipilih";
+    : group ? "" : "Belum ada grup dipilih";
+  $("#edit-group-name").classList.toggle("hidden", !group || state.user?.role !== "admin");
+}
+
+function setGroupNameEditing(editing) {
+  $("#group-title-row").classList.toggle("hidden", editing);
+  $("#group-name-form").classList.toggle("hidden", !editing);
+  $("#group-name-error").textContent = "";
+  if (editing) {
+    const input = $("#group-name-input");
+    input.value = $("#selected-group-name").textContent;
+    input.focus();
+    input.select();
+  }
+}
+
+async function saveGroupName(event) {
+  event.preventDefault();
+  const groupId = Number(state.selectedGroupId);
+  const input = $("#group-name-input");
+  const saveButton = $("#save-group-name");
+  if (!groupId || saveButton.disabled) return;
+  $("#group-name-error").textContent = "";
+  const editButton = $("#edit-group-name");
+  const cancelButton = $("#cancel-group-name");
+  saveButton.disabled = editButton.disabled = cancelButton.disabled = input.readOnly = true;
+  let saved = false;
+  try {
+    const { name } = await api(`/api/groups/${groupId}/name`, {
+      method: "POST",
+      body: JSON.stringify({ name: input.value }),
+    });
+    const group = state.groups.find((item) => item.id === groupId);
+    if (group) group.name = name;
+    if (Number(state.selectedGroupId) === groupId) {
+      $("#selected-group-name").textContent = name;
+      setGroupNameEditing(false);
+    }
+    renderGroups();
+    saved = true;
+    loadGroups().catch(() => {});
+  } catch (error) {
+    if (Number(state.selectedGroupId) === groupId) {
+      $("#group-name-error").textContent = error.message;
+    }
+  } finally {
+    saveButton.disabled = editButton.disabled = cancelButton.disabled = input.readOnly = false;
+    if (Number(state.selectedGroupId) === groupId) {
+      if (saved) editButton.focus();
+      else input.focus();
+    }
+  }
+}
+
+async function selectGroup(groupId, fallbackGroup) {
+  if (Number(state.selectedGroupId) !== Number(groupId)) setGroupNameEditing(false);
+  state.selectedGroupId = groupId;
+  const group = state.groups.find((item) => Number(item.id) === Number(groupId)) || fallbackGroup;
+  renderGroupHeader(group);
   renderGroups();
   await Promise.all([loadContacts(groupId), loadMessages({ preserveScroll: false })]);
 }
 
 async function loadContacts(groupId) {
   const data = await api(`/api/contacts?group_id=${encodeURIComponent(groupId)}`);
+  if (Number(state.selectedGroupId) !== Number(groupId)) return;
   state.contacts = data.contacts;
   renderMembers();
 }
@@ -619,19 +689,17 @@ function formatWhatsAppNumber(value) {
 
 function renderMembers() {
   const container = $("#member-list");
-  if (!container) return;
-  container.classList.toggle("empty-state", !state.contacts.length);
-  if (!state.contacts.length) {
-    container.innerHTML = "Belum ada anggota dari pesan yang masuk.";
-    return;
-  }
+  const empty = $("#member-empty");
+  container.classList.toggle("hidden", !state.contacts.length);
+  empty.classList.toggle("hidden", Boolean(state.contacts.length));
+  empty.textContent = "Belum ada anggota dari pesan yang masuk.";
   container.innerHTML = state.contacts
     .map(
       (contact) => `
-        <div class="member-item">
+        <li class="member-item">
           <span class="member-name">${escapeHtml(contact.display_name || "-")}</span>
           <span class="member-number">${escapeHtml(formatWhatsAppNumber(contact.wa_contact_id))}</span>
-        </div>
+        </li>
       `
     )
     .join("");
@@ -1382,9 +1450,9 @@ function renderSearchResults(results) {
       `
     )
     .join("");
-  container.querySelectorAll(".search-result").forEach((item) => {
+  container.querySelectorAll(".search-result").forEach((item, index) => {
     item.addEventListener("click", async () => {
-      await selectGroup(item.dataset.groupId);
+      await selectGroup(item.dataset.groupId, { name: results[index].group_name });
     });
   });
 }
@@ -1398,6 +1466,17 @@ on("#teacher-tab", "click", () => switchView("teacher"));
 on("#chat-tab", "click", () => switchView("chat"));
 on("#refresh-button", "click", () => refreshAll());
 on("#group-search", "input", () => loadGroups().catch(() => {}));
+on("#group-list", "scroll", ({ currentTarget }) => {
+  currentTarget.classList.add("is-scrolling");
+  clearTimeout(groupScrollTimer);
+  groupScrollTimer = setTimeout(() => currentTarget.classList.remove("is-scrolling"), 650);
+});
+on("#edit-group-name", "click", () => setGroupNameEditing(true));
+on("#cancel-group-name", "click", () => {
+  setGroupNameEditing(false);
+  $("#edit-group-name").focus();
+});
+on("#group-name-form", "submit", saveGroupName);
 on("#message-keyword", "keydown", (event) => {
   if (event.key === "Enter") loadMessages({ preserveScroll: false });
 });

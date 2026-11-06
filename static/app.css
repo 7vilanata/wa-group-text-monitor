@@ -312,6 +312,12 @@ select:focus {
 .group-list {
   overflow: auto;
   padding: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.group-list.is-scrolling {
+  scrollbar-color: #a8b3bd transparent;
 }
 
 .group-item {
@@ -347,6 +353,15 @@ select:focus {
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.group-name {
+  min-width: 0;
+  font-weight: 600;
+}
+
+.group-row .group-time {
+  flex-shrink: 0;
 }
 
 .group-time,
@@ -397,6 +412,43 @@ select:focus {
   gap: 8px;
 }
 
+.conversation-title {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.group-title-row,
+.group-name-fields {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.group-title-row button,
+.group-name-fields button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.group-name-fields input {
+  flex: 1 1 160px;
+  min-width: 0;
+  min-height: 32px;
+}
+
+.group-name-error {
+  margin: 4px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.group-name-error:empty {
+  display: none;
+}
+
 .filters {
   display: grid;
   grid-template-columns: minmax(160px, 1.3fr) minmax(140px, 1fr) 140px 140px auto auto;
@@ -419,37 +471,43 @@ select:focus {
 }
 
 .member-list {
-  display: grid;
-  gap: 8px;
   max-height: 360px;
   overflow: auto;
+  margin: 0;
+  padding: 4px 12px 4px 36px;
+}
+
+.member-empty {
   padding: 12px;
 }
 
 .member-item {
-  display: grid;
-  gap: 4px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fbfcfd;
+  padding: 8px 0 8px 4px;
+}
+
+.member-item + .member-item {
+  border-top: 1px solid var(--line);
+}
+
+.member-item::marker {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .member-name {
-  overflow: hidden;
+  display: block;
   color: var(--text);
   font-size: 14px;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .member-number {
-  overflow: hidden;
+  display: block;
+  margin-top: 2px;
   color: var(--muted);
   font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .message-list {

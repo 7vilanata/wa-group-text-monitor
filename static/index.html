@@ -108,9 +108,20 @@
 
       <section id="chat-view" class="conversation hidden">
         <header class="conversation-header">
-          <div>
+          <div class="conversation-title">
             <p id="selected-group-meta" class="eyebrow">Belum ada grup dipilih</p>
-            <h2 id="selected-group-name">Percakapan</h2>
+            <div id="group-title-row" class="group-title-row">
+              <h2 id="selected-group-name">Percakapan</h2>
+              <button id="edit-group-name" class="ghost-button hidden" type="button" aria-label="Edit nama grup">Edit</button>
+            </div>
+            <form id="group-name-form" class="group-name-form hidden">
+              <div class="group-name-fields">
+                <input id="group-name-input" type="text" aria-label="Nama grup" required />
+                <button id="save-group-name" class="secondary-button" type="submit">Simpan</button>
+                <button id="cancel-group-name" class="ghost-button" type="button">Batal</button>
+              </div>
+              <p id="group-name-error" class="group-name-error" role="alert"></p>
+            </form>
           </div>
           <div class="header-actions">
             <button id="refresh-button" class="secondary-button">Refresh</button>
@@ -337,7 +348,8 @@
           <div class="panel-title">
             <h3>Anggota Grup</h3>
           </div>
-          <div id="member-list" class="member-list empty-state">Pilih grup untuk melihat anggota.</div>
+          <div id="member-empty" class="member-empty empty-state">Pilih grup untuk melihat anggota.</div>
+          <ol id="member-list" class="member-list hidden"></ol>
         </section>
 
         <section class="panel">

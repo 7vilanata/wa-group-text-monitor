@@ -23,6 +23,7 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com").strip().lower()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 ADMIN_NAME = os.environ.get("ADMIN_NAME", "Admin")
 SESSION_TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", str(60 * 60 * 12)))
+GROUP_NAME_MAX_LENGTH = 120
 
 
 def utc_now():
@@ -80,6 +81,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 wa_chat_id TEXT NOT NULL UNIQUE,
                 name TEXT NOT NULL,
+                name_is_manual INTEGER NOT NULL DEFAULT 0,
                 participant_count INTEGER,
                 last_message_at TEXT,
                 created_at TEXT NOT NULL,
@@ -154,6 +156,9 @@ def init_db():
             """
         )
         migrate_daily_group_changes(conn)
+        group_columns = conn.execute("PRAGMA table_info(groups)").fetchall()
+        if not any(column["name"] == "name_is_manual" for column in group_columns):
+            conn.execute("ALTER TABLE groups ADD COLUMN name_is_manual INTEGER NOT NULL DEFAULT 0")
 
         user = conn.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
         salt, password_hash = hash_password(ADMIN_PASSWORD)
@@ -472,7 +477,7 @@ def upsert_message(payload):
             INSERT INTO groups (wa_chat_id, name, participant_count, last_message_at, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(wa_chat_id) DO UPDATE SET
-                name = excluded.name,
+                name = CASE WHEN groups.name_is_manual = 1 THEN groups.name ELSE excluded.name END,
                 participant_count = COALESCE(excluded.participant_count, groups.participant_count),
                 last_message_at = CASE
                     WHEN groups.last_message_at IS NULL OR excluded.last_message_at > groups.last_message_at
@@ -716,7 +721,44 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return
             self.api_create_daily_change(user)
             return
+        parts = path.split("/")
+        if len(parts) == 5 and parts[:3] == ["", "api", "groups"] and parts[4] == "name":
+            user = self.require_user()
+            if user:
+                self.api_rename_group(parts[3], user)
+            return
         self.send_json(404, {"error": "not_found"})
+
+    def api_rename_group(self, group_id, user):
+        if user["role"] != "admin":
+            self.send_json(403, {"error": "Hanya admin yang bisa mengubah nama grup."})
+            return
+        if not group_id.isascii() or not group_id.isdecimal():
+            self.send_json(404, {"error": "Grup tidak ditemukan."})
+            return
+        if self.headers.get_content_type() != "application/json":
+            self.send_json(415, {"error": "Gunakan format JSON."})
+            return
+        try:
+            payload = self.read_json()
+            name = payload.get("name") if isinstance(payload, dict) else None
+            name = name.strip() if isinstance(name, str) else ""
+            name.encode("utf-8")
+        except ValueError:
+            self.send_json(400, {"error": "Nama grup tidak valid."})
+            return
+        if not name or len(name) > GROUP_NAME_MAX_LENGTH or any(char in name for char in "\x00\r\n"):
+            self.send_json(400, {"error": f"Masukkan nama grup sepanjang 1–{GROUP_NAME_MAX_LENGTH} karakter dalam satu baris."})
+            return
+        with db() as conn:
+            updated = conn.execute(
+                "UPDATE groups SET name = ?, name_is_manual = 1, updated_at = ? WHERE id = ?",
+                (name, utc_now(), group_id),
+            ).rowcount
+        if not updated:
+            self.send_json(404, {"error": "Grup tidak ditemukan."})
+            return
+        self.send_json(200, {"name": name})
 
     def api_login(self):
         try:
